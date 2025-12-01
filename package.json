@@ -1,0 +1,17 @@
+{
+	"name": "advent2025",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"go": "tsx"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"packageManager": "pnpm@10.17.1",
+	"dependencies": {
+		"@types/node": "^24.10.1",
+		"tsx": "^4.21.0"
+	}
+}
