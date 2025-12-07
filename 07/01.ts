@@ -16,7 +16,7 @@ async function main() {
 		for (const b of beams.values()) {
 			if (lines[i]![b] === ".") {
 				newBeams.add(b);
-			} else {
+			} else if (lines[i]![b] === "^") {
 				splits++;
 				if (b > 0) {
 					newBeams.add(b - 1);
