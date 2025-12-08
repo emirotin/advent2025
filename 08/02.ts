@@ -33,10 +33,13 @@ async function main() {
 
 	const nodeToCircuit = coords.map((_, i) => i);
 	const circuits = coords.map((_, i) => [i]);
+	let partsCount = n;
 	const joinNodes = (i: number, j: number) => {
 		const id1 = nodeToCircuit[i]!;
 		const id2 = nodeToCircuit[j]!;
 		if (id1 === id2) return;
+
+		partsCount--;
 		const a1 = circuits[id1]!;
 		const a2 = circuits[id2]!;
 		circuits[id1] = a1.concat(a2);
@@ -48,7 +51,7 @@ async function main() {
 
 	for (const [_, i, j] of dists) {
 		joinNodes(i, j);
-		if (circuits.filter((x) => x.length > 0).length === 1) {
+		if (partsCount === 1) {
 			console.log((coords[i]![0] * coords[j]![0]).toString());
 			return;
 		}
