@@ -7,8 +7,6 @@ async function readInput() {
 
 type Coords = [bigint, bigint, bigint];
 
-const rand = () => Math.round(Math.random() * 10_000_000_000).toString(36);
-
 const dist = (a: Coords, b: Coords) => {
 	const c = a.map((_, i) => a[i]! - b[i]!);
 	return c.map((x) => x * x).reduce((x, y) => x + y);
@@ -33,26 +31,24 @@ async function main() {
 	// sort ASC
 	dists.sort(([d1], [d2]) => (d1 < d2 ? -11 : d1 > d2 ? 1 : 0));
 
-	const coordToCircuit = coords.map(() => rand());
-
-	const circuits = new Map(coordToCircuit.map((id, i) => [id, [i]]));
-
+	const nodeToCircuit = coords.map((_, i) => i);
+	const circuits = coords.map((_, i) => [i]);
 	const joinNodes = (i: number, j: number) => {
-		const id1 = coordToCircuit[i]!;
-		const id2 = coordToCircuit[j]!;
+		const id1 = nodeToCircuit[i]!;
+		const id2 = nodeToCircuit[j]!;
 		if (id1 === id2) return;
-		const a1 = circuits.get(id1)!;
-		const a2 = circuits.get(id2)!;
-		circuits.set(id1, a1.concat(a2));
-		circuits.delete(id2);
+		const a1 = circuits[id1]!;
+		const a2 = circuits[id2]!;
+		circuits[id1] = a1.concat(a2);
+		circuits[id2] = [];
 		for (const i of a2) {
-			coordToCircuit[i] = id1;
+			nodeToCircuit[i] = id1;
 		}
 	};
 
 	for (const [_, i, j] of dists) {
 		joinNodes(i, j);
-		if (circuits.size === 1) {
+		if (circuits.filter((x) => x.length > 0).length === 1) {
 			console.log((coords[i]![0] * coords[j]![0]).toString());
 			return;
 		}
