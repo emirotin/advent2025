@@ -6,6 +6,7 @@ async function readInput() {
 }
 
 type Coords = readonly [number, number];
+type Segment = readonly [Coords, Coords];
 
 const area = (a: Coords, b: Coords) => {
 	const xs = [a[0], b[0]];
@@ -15,6 +16,7 @@ const area = (a: Coords, b: Coords) => {
 	return w * h;
 };
 
+// canonic equation for the line by two points
 const lineEq = ([x1, y1]: Coords, [x2, y2]: Coords) => {
 	const d = x1 * y2 - y1 * x2;
 	const a = (y2 - y1) / d;
@@ -23,9 +25,11 @@ const lineEq = ([x1, y1]: Coords, [x2, y2]: Coords) => {
 	return [a, b, 1] as const;
 };
 
+// JS <3
 const epsilon = 1e-6;
 
-const isBetween = ([p1, p2]: readonly [Coords, Coords], p: Coords) => {
+// is given point in the bounding rect of the given segment
+const isBetween = ([p1, p2]: Segment, p: Coords) => {
 	return (
 		p[0] >= Math.min(p1[0], p2[0]) - epsilon &&
 		p[0] <= Math.max(p1[0], p2[0]) + epsilon &&
@@ -34,29 +38,19 @@ const isBetween = ([p1, p2]: readonly [Coords, Coords], p: Coords) => {
 	);
 };
 
-const doIntersect = (e1: readonly [Coords, Coords], e2: [Coords, Coords]) => {
-	const [a1, b1, c1] = lineEq(...e1);
-	const [a2, b2, c2] = lineEq(...e2);
+const doVectorsIntersect = (v1: Segment, v2: Segment) => {
+	const [a1, b1, c1] = lineEq(...v1);
+	const [a2, b2, c2] = lineEq(...v2);
 
+	// find the lines intersection point
 	const d1 = a1 * b2 - a2 * b1;
 	if (d1 === 0) return false;
 	const x = (c1 * b2 - c2 * b1) / d1;
 	const d2 = a2 * b1 - a1 * b2;
 	if (d2 === 0) return false;
 	const y = (c1 * a2 - c2 * a1) / d2;
-	return isBetween(e1, [x, y]) && isBetween(e2, [x, y]);
+	return isBetween(v1, [x, y]) && isBetween(v2, [x, y]);
 };
-
-function* range(from: number, to: number) {
-	if (from <= to) {
-		for (let i = from; i <= to; i++) {
-			yield i;
-		}
-	}
-	for (let i = from; i >= to; i--) {
-		yield i;
-	}
-}
 
 const vect = (a: Coords, b: Coords) => [b[0] - a[0], b[1] - a[1]] as const;
 
@@ -80,47 +74,48 @@ const getVectDir = (vect: Coords) => {
 
 type VectDir = ReturnType<typeof getVectDir>;
 
-const getOuterV = (v: Coords, currDir: VectDir, nextDir: VectDir) => {
+// Outer vertext corresponding to the corner square with center in `c`
+const getOuterV = (c: Coords, currDir: VectDir, nextDir: VectDir) => {
 	// outer turns
 
 	if (currDir.isRight && nextDir.isDown) {
-		return [v[0] + 0.5, v[1] - 0.5] as const;
+		return [c[0] + 0.5, c[1] - 0.5] as const;
 	}
 
 	if (currDir.isDown && nextDir.isLeft) {
-		return [v[0] + 0.5, v[1] + 0.5] as const;
+		return [c[0] + 0.5, c[1] + 0.5] as const;
 	}
 
 	if (currDir.isLeft && nextDir.isUp) {
-		return [v[0] - 0.5, v[1] + 0.5] as const;
+		return [c[0] - 0.5, c[1] + 0.5] as const;
 	}
 
 	if (currDir.isUp && nextDir.isRight) {
-		return [v[0] - 0.5, v[1] - 0.5] as const;
+		return [c[0] - 0.5, c[1] - 0.5] as const;
 	}
 
 	// inner turns
 
 	if (currDir.isRight && nextDir.isUp) {
-		return [v[0] - 0.5, v[1] - 0.5] as const;
+		return [c[0] - 0.5, c[1] - 0.5] as const;
 	}
 
 	if (currDir.isLeft && nextDir.isDown) {
-		return [v[0] + 0.5, v[1] + 0.5] as const;
+		return [c[0] + 0.5, c[1] + 0.5] as const;
 	}
 
 	if (currDir.isDown && nextDir.isRight) {
-		return [v[0] + 0.5, v[1] - 0.5] as const;
+		return [c[0] + 0.5, c[1] - 0.5] as const;
 	}
 
 	if (currDir.isUp && nextDir.isLeft) {
-		return [v[0] - 0.5, v[1] + 0.5] as const;
+		return [c[0] - 0.5, c[1] + 0.5] as const;
 	}
 
-	return v;
+	return c;
 };
 
-// it makes hard assumption that we're going CW, starting from the horizontal segment, making right turn to the 2nd segment
+// it makes hard assumption that we're going CW, where the right is the outer turn
 const buildEdges = (vs: Coords[]) => {
 	const outerVs: Coords[] = [];
 	for (let i = 0; i < vs.length; i++) {
@@ -140,6 +135,17 @@ const buildEdges = (vs: Coords[]) => {
 			[c, i === outerVs.length - 1 ? outerVs[0]! : outerVs[i + 1]!] as const
 	);
 };
+
+function* range(from: number, to: number) {
+	if (from <= to) {
+		for (let i = from; i <= to; i++) {
+			yield i;
+		}
+	}
+	for (let i = from; i >= to; i--) {
+		yield i;
+	}
+}
 
 function* perimeterSquares({
 	minX,
@@ -188,10 +194,11 @@ async function main() {
 			px[1] > globalMaxY
 		)
 			return true;
-		const intersections = edges.filter((e) => doIntersect(e, [pIn, px]));
+		const intersections = edges.filter((e) => doVectorsIntersect(e, [pIn, px]));
 		return intersections.length % 2 === 1;
 	};
 
+	// lots of repetitive candidates, memoization helps
 	const isOutside = (px: Coords) => {
 		const key = `${px[0]}:${px[1]}`;
 		const cached = cache.get(key);
@@ -207,6 +214,7 @@ async function main() {
 		const minY = Math.min(c1[1], c2[1]);
 		const maxY = Math.max(c1[1], c2[1]);
 
+		// if the rectange has some outer square, it also has an edge/perimeter square that's also outer
 		for (const c of perimeterSquares({ minX, maxX, minY, maxY })) {
 			if (isOutside(c)) return true;
 		}
@@ -225,18 +233,12 @@ async function main() {
 	}
 
 	areas.sort(([a1], [a2]) => a2 - a1);
-	const total = areas.length;
-	let i = 0;
 
+	// check in DESC order so we can stop as soon as we have the match
 	for (const [a, c1, c2] of areas) {
-		i++;
 		if (!isInvalidRect(c1, c2)) {
 			console.log("Result", a);
 			break;
-		}
-		if (i % 1_000 === 1) {
-			console.log(`${i}/${total}: Current guess ${a}, not valid`);
-			console.log(`Cached: ${cache.size}`);
 		}
 	}
 }
