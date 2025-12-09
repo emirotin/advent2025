@@ -25,7 +25,7 @@ const lineEq = ([x1, y1]: Coords, [x2, y2]: Coords) => {
 
 const epsilon = 1e-6;
 
-const isInside = ([p1, p2]: readonly [Coords, Coords], p: Coords) => {
+const isBetween = ([p1, p2]: readonly [Coords, Coords], p: Coords) => {
 	return (
 		p[0] >= Math.min(p1[0], p2[0]) - epsilon &&
 		p[0] <= Math.max(p1[0], p2[0]) + epsilon &&
@@ -44,34 +44,19 @@ const doIntersect = (e1: readonly [Coords, Coords], e2: [Coords, Coords]) => {
 	const d2 = a2 * b1 - a1 * b2;
 	if (d2 === 0) return false;
 	const y = (c1 * a2 - c2 * a1) / d2;
-	return isInside(e1, [x, y]) && isInside(e2, [x, y]);
+	return isBetween(e1, [x, y]) && isBetween(e2, [x, y]);
 };
 
-const cache = new Map<string, boolean>();
-
-const isOutside = (
-	edges: (readonly [Coords, Coords])[],
-	pIn: Coords,
-	px: Coords
-) => {
-	const key = px.join(":");
-	const cached = cache.get(key);
-	if (cached !== undefined) return cached;
-	const intersections = edges.filter((e) => doIntersect(e, [pIn, px]));
-	if (intersections.length % 2 === 1) {
-		cache.set(key, true);
-		return true;
+function* range(from: number, to: number) {
+	if (from <= to) {
+		for (let i = from; i <= to; i++) {
+			yield i;
+		}
 	}
-	cache.set(key, false);
-	return false;
-};
-
-const range = (from: number, to: number) => {
-	const min = Math.min(from, to);
-	const max = Math.max(from, to);
-	const r = Array.from({ length: max - min + 1 }, (_, i) => min + i);
-	return min <= max ? r : r.reverse();
-};
+	for (let i = from; i >= to; i--) {
+		yield i;
+	}
+}
 
 const vect = (a: Coords, b: Coords) => [b[0] - a[0], b[1] - a[1]] as const;
 
@@ -156,26 +141,22 @@ const buildEdges = (vs: Coords[]) => {
 	);
 };
 
-const isValidRect = (
-	edges: (readonly [Coords, Coords])[],
-	pIn: Coords,
-	c1: Coords,
-	c2: Coords
-) => {
-	const minX = Math.min(c1[0], c2[0]);
-	const maxX = Math.max(c1[0], c2[0]);
-	const minY = Math.min(c1[1], c2[1]);
-	const maxY = Math.max(c1[1], c2[1]);
-
-	const edgeRects = [
-		...range(minY, maxY).map((y) => [minX, y] as const),
-		...range(minX, maxX).map((x) => [x, maxY] as const),
-		...range(minY, maxY).map((y) => [maxX, y] as const),
-		...range(minX, maxX).map((x) => [x, minY] as const),
-	];
-
-	return !edgeRects.some((p) => isOutside(edges, pIn, p));
-};
+function* perimeterSquares({
+	minX,
+	maxX,
+	minY,
+	maxY,
+}: {
+	minX: number;
+	maxX: number;
+	minY: number;
+	maxY: number;
+}) {
+	for (const y of range(minY + 1, maxY)) yield [minX, y] as const;
+	for (const x of range(minX + 1, maxX)) yield [x, maxY] as const;
+	for (const y of range(maxY - 1, minY)) yield [maxX, y] as const;
+	for (const x of range(maxX - 1, minX)) yield [x, minY] as const;
+}
 
 async function main() {
 	const input = await readInput();
@@ -187,12 +168,54 @@ async function main() {
 				.map((s) => Number.parseInt(s)) as unknown as Coords
 	);
 
+	const allXs = coords.map(([x]) => x);
+	const allYs = coords.map(([_, y]) => y);
+	const globalMinX = Math.min(...allXs);
+	const globalMaxX = Math.max(...allXs);
+	const globalMinY = Math.min(...allYs);
+	const globalMaxY = Math.max(...allYs);
+
 	const edges = buildEdges(coords);
+	const pIn = coords[0]!;
+
+	const cache = new Map<string, boolean>();
+
+	const _isOutside = (px: Coords) => {
+		if (
+			px[0] < globalMinX ||
+			px[0] > globalMaxX ||
+			px[1] < globalMinY ||
+			px[1] > globalMaxY
+		)
+			return true;
+		const intersections = edges.filter((e) => doIntersect(e, [pIn, px]));
+		return intersections.length % 2 === 1;
+	};
+
+	const isOutside = (px: Coords) => {
+		const key = `${px[0]}:${px[1]}`;
+		const cached = cache.get(key);
+		if (cached !== undefined) return cached;
+		const result = _isOutside(px);
+		cache.set(key, result);
+		return result;
+	};
+
+	const isInvalidRect = (c1: Coords, c2: Coords) => {
+		const minX = Math.min(c1[0], c2[0]);
+		const maxX = Math.max(c1[0], c2[0]);
+		const minY = Math.min(c1[1], c2[1]);
+		const maxY = Math.max(c1[1], c2[1]);
+
+		for (const c of perimeterSquares({ minX, maxX, minY, maxY })) {
+			if (isOutside(c)) return true;
+		}
+
+		return false;
+	};
 
 	const n = coords.length;
-
 	const areas: [number, Coords, Coords][] = [];
-
 	for (let i = 0; i < n - 1; i++) {
 		const c1 = coords[i]!;
 		for (let j = i + 1; j < n; j++) {
@@ -207,10 +230,13 @@ async function main() {
 
 	for (const [a, c1, c2] of areas) {
 		i++;
-		if (i % 1_000 === 0) console.log(`${i}/${total}: ${a}`);
-		if (isValidRect(edges, coords[0]!, c1, c2)) {
-			console.log(a);
+		if (!isInvalidRect(c1, c2)) {
+			console.log("Result", a);
 			break;
+		}
+		if (i % 1_000 === 1) {
+			console.log(`${i}/${total}: Current guess ${a}, not valid`);
+			console.log(`Cached: ${cache.size}`);
 		}
 	}
 }

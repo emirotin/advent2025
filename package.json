@@ -11,7 +11,9 @@
 	"license": "ISC",
 	"packageManager": "pnpm@10.17.1",
 	"dependencies": {
+		"@types/lodash": "^4.17.21",
 		"@types/node": "^24.10.1",
+		"lodash": "^4.17.21",
 		"tsx": "^4.21.0"
 	}
 }
