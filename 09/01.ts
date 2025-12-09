@@ -5,8 +5,6 @@ async function readInput() {
 	return content.split("\n");
 }
 
-const CONNS = 1000;
-
 type Coords = [number, number];
 
 const area = (a: Coords, b: Coords) => {
