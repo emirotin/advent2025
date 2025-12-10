@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 
 async function readInput() {
-	const content = (await fs.readFile("10/input.txt", "utf-8")).trim();
+	const content = (await fs.readFile("10/demo.txt", "utf-8")).trim();
 	return content.split("\n");
 }
 
@@ -44,15 +44,18 @@ function findBestPushesInt(
 ): number {
 	if (currentCount >= knownMinimum && Number.isFinite(knownMinimum))
 		return knownMinimum;
-	if (target.some((v) => v < 0)) return Infinity;
-	if (target.every((v, i) => v === 0)) return currentCount;
+	let zeros = 0;
+	for (const v of target) {
+		if (v < 0) return Infinity;
+		if (v === 0) zeros++;
+	}
+	if (zeros === target.length) return currentCount;
 	if (increments.length === 0) return Infinity;
-	const inc = increments[0]!;
-	const newIncrements = increments.slice(1);
-	const maxPresses = Math.min(...inc.map((i) => target[i]!));
-	let result = Infinity;
-	for (let p = 0; p <= maxPresses; p++) {
-		const newTarget = target.map((v, i) => (inc.includes(i) ? v - p : v));
+	const [inc, ...newIncrements] = increments;
+	const maxPossiblePresses = Math.min(...inc!.map((i) => target[i]!));
+	let result = knownMinimum;
+	for (let p = maxPossiblePresses; p >= 0; p--) {
+		const newTarget = target.map((v, i) => (inc!.includes(i) ? v - p : v));
 		result = Math.min(
 			result,
 			findBestPushesInt(newTarget, newIncrements, currentCount + p, result)
@@ -71,8 +74,10 @@ async function main() {
 
 	let res = 0;
 	for (const def of defs) {
-		const best = findBestPushes(def.jolts, def.buttons);
-		console.log(def, "\n", best);
+		const best = findBestPushes(
+			def.jolts,
+			def.buttons.toSorted((a, b) => b.length - a.length)
+		);
 		res += best;
 	}
 
