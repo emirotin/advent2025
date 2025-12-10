@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 
 async function readInput() {
-	const content = (await fs.readFile("10/demo.txt", "utf-8")).trim();
+	const content = (await fs.readFile("10/input.txt", "utf-8")).trim();
 	return content.split("\n");
 }
 
@@ -36,36 +36,31 @@ const parseDef = (s: string) => {
 	return { buttons, jolts };
 };
 
-function findBestPushesInt(
-	target: number[],
-	increments: number[][],
-	currentCount: number,
-	knownMinimum: number
-): number {
-	if (currentCount >= knownMinimum && Number.isFinite(knownMinimum))
-		return knownMinimum;
-	let zeros = 0;
-	for (const v of target) {
-		if (v < 0) return Infinity;
-		if (v === 0) zeros++;
-	}
-	if (zeros === target.length) return currentCount;
-	if (increments.length === 0) return Infinity;
-	const [inc, ...newIncrements] = increments;
-	const maxPossiblePresses = Math.min(...inc!.map((i) => target[i]!));
-	let result = knownMinimum;
-	for (let p = maxPossiblePresses; p >= 0; p--) {
-		const newTarget = target.map((v, i) => (inc!.includes(i) ? v - p : v));
-		result = Math.min(
-			result,
-			findBestPushesInt(newTarget, newIncrements, currentCount + p, result)
-		);
-	}
-	return result;
-}
-
 function findBestPushes(target: number[], increments: number[][]): number {
-	return findBestPushesInt(target, increments, 0, Infinity);
+	const experiments = [[target, increments, 0 as number] as const];
+	let bestResult = Infinity;
+
+	let experiment: (typeof experiments)[number] | undefined;
+	while ((experiment = experiments.shift())) {
+		const [target, increments, currentCount] = experiment;
+		if (currentCount >= bestResult) continue;
+		if (target.some((v) => v < 0)) continue;
+		if (target.every((v) => v === 0)) {
+			bestResult = Math.min(bestResult, currentCount);
+		}
+		if (!increments.length) continue;
+		const [inc, ...restIncrements] = increments;
+		const maxPossiblePresses = Math.min(...inc!.map((i) => target[i]!));
+		for (let p = 0; p <= maxPossiblePresses; p++) {
+			experiments.push([
+				target.map((v, i) => (inc!.includes(i) ? v - p : v)),
+				restIncrements,
+				currentCount + p,
+			] as const);
+		}
+	}
+
+	return bestResult;
 }
 
 async function main() {
@@ -74,6 +69,7 @@ async function main() {
 
 	let res = 0;
 	for (const def of defs) {
+		console.log(def);
 		const best = findBestPushes(
 			def.jolts,
 			def.buttons.toSorted((a, b) => b.length - a.length)
