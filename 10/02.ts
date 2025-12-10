@@ -36,27 +36,48 @@ const parseDef = (s: string) => {
 	return { buttons, jolts };
 };
 
-function findBestPushes(target: number[], increments: number[][]): number {
-	const experiments = [[target, increments, 0 as number] as const];
+function findMinimalCombination(
+	targetArray: number[],
+	incrementArrays: number[][]
+): number {
+	const base = BigInt(1 + Math.max(...targetArray));
+	const toBased = (ns: number[]) =>
+		ns.reduce((acc, n) => acc * base + BigInt(n), 0n);
+
+	const increments = incrementArrays
+		.map((arr) => {
+			const positions = targetArray.map((_, i) => (arr.includes(i) ? 1 : 0));
+			return toBased(positions);
+		})
+		.toSorted((a, b) => {
+			if (b < a) return -1;
+			if (b > a) return 1;
+			return 0;
+		});
+
+	const experiments = [
+		[toBased(targetArray), increments, 0 as number] as const,
+	];
 	let bestResult = Infinity;
 
 	let experiment: (typeof experiments)[number] | undefined;
 	while ((experiment = experiments.pop())) {
+		console.log(experiments.length);
 		const [target, increments, currentCount] = experiment;
 		if (currentCount >= bestResult) continue;
-		if (target.some((v) => v < 0)) continue;
-		if (target.every((v) => v === 0)) {
+		if (target < 0n) continue;
+		if (target === 0n) {
 			bestResult = Math.min(bestResult, currentCount);
 			continue;
 		}
 		if (!increments.length) continue;
 		const [inc, ...restIncrements] = increments;
-		const maxPossiblePresses = Math.min(...inc!.map((i) => target[i]!));
-		for (let p = 0; p <= maxPossiblePresses; p++) {
+		const maxPossibleCoeff = target / inc!;
+		for (let c = 0; c <= maxPossibleCoeff; c++) {
 			experiments.push([
-				target.map((v, i) => (inc!.includes(i) ? v - p : v)),
+				target - BigInt(c) * inc!,
 				restIncrements,
-				currentCount + p,
+				currentCount + c,
 			] as const);
 		}
 	}
@@ -71,10 +92,7 @@ async function main() {
 	let res = 0;
 	for (const def of defs) {
 		console.log(def);
-		const best = findBestPushes(
-			def.jolts,
-			def.buttons.toSorted((a, b) => b.length - a.length)
-		);
+		const best = findMinimalCombination(def.jolts, def.buttons);
 		res += best;
 	}
 
