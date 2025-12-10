@@ -41,12 +41,13 @@ function findBestPushes(target: number[], increments: number[][]): number {
 	let bestResult = Infinity;
 
 	let experiment: (typeof experiments)[number] | undefined;
-	while ((experiment = experiments.shift())) {
+	while ((experiment = experiments.pop())) {
 		const [target, increments, currentCount] = experiment;
 		if (currentCount >= bestResult) continue;
 		if (target.some((v) => v < 0)) continue;
 		if (target.every((v) => v === 0)) {
 			bestResult = Math.min(bestResult, currentCount);
+			continue;
 		}
 		if (!increments.length) continue;
 		const [inc, ...restIncrements] = increments;
