@@ -47,8 +47,6 @@ const parseDef = (s: string) => {
 	return { lights, buttons, lightsCount, targetNumber, buttonNumbers };
 };
 
-// type Def = ReturnType<typeof parseDef>;
-
 function findBestXorInt(
 	target: number,
 	candidates: number[],
