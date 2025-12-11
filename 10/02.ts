@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 
 async function readInput() {
-	const content = (await fs.readFile("10/demo.txt", "utf-8")).trim();
+	const content = (await fs.readFile("10/input.txt", "utf-8")).trim();
 	return content.split("\n");
 }
 
@@ -94,7 +94,7 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 	};
 
 	for (let r = 0; r < n; r++) {
-		// console.log(`Row ${r}`);
+		console.log(`Row ${r}`);
 
 		let r2 = r;
 		while (r2 < n) {
@@ -107,9 +107,26 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 			for (let r3 = r2 + 1; r3 < n; r3++) {
 				if (matrix[r3]![r] !== 0) {
 					found = true;
-					// console.log("Swap rows");
+					console.log("Swap rows");
 					swapRows(r2, r3);
-					// print();
+					print();
+					break;
+				}
+			}
+
+			if (!found) break;
+		}
+
+		for (let c = r; c < m && c < n; c++) {
+			// console.log(`Column ${c}`);
+			if (matrix[c]![c] !== 0) continue;
+			let found = false;
+			for (let c2 = c + 1; c2 < m; c2++) {
+				if (matrix[c]![c2] !== 0) {
+					found = true;
+					console.log("Swap cols");
+					swapCols(c, c2);
+					print();
 					break;
 				}
 			}
@@ -118,36 +135,22 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 		}
 
 		if (matrix[r]![r] !== undefined && matrix[r]![r] !== 0) {
-			// console.log("Sub");
+			console.log("Sub");
 			sub(r);
-			// print();
+			print();
 		}
 	}
 
-	for (let c = 0; c < m && c < n; c++) {
-		// console.log(`Column ${c}`);
-		if (matrix[c]![c] !== 0) continue;
-		let found = false;
-		for (let c2 = c + 1; c2 < m; c2++) {
-			if (matrix[c]![c2] !== 0) {
-				found = true;
-				// console.log("Swap cols");
-				swapCols(c, c2);
-				// print();
-				break;
-			}
-		}
-
-		if (!found) break;
-	}
+	const epsilon = 1e-6;
 
 	for (let r = n - 1; r >= 0; r--) {
 		if (!matrix[r]!.every((x) => x === 0)) break;
-		if (v[r] !== 0) throw new Error("Non-zero value in zero row");
-		// console.log(`Removing zero row ${r}`);
+		if (Math.abs(v[r]!) > epsilon)
+			throw new Error("Non-zero value in zero row");
+		console.log(`Removing zero row ${r}`);
 		matrix.pop();
 		v.pop();
-		// print();
+		print();
 	}
 
 	print();
@@ -239,7 +242,7 @@ async function main() {
 	const defs = input.filter(Boolean).map(parseDef);
 
 	let res = 0;
-	for (const def of defs.slice(1, 2)) {
+	for (const def of defs) {
 		// console.log(def);
 		const best = solve(def.jolts, def.buttons);
 		// console.log({ best });
