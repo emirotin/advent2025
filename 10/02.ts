@@ -80,7 +80,6 @@ function diagonalize(matrix: number[][], v: number[]) {
 		}
 		// console.log(`Swap ${c1} -> ${c2}`);
 		swaps.push([c1, c2]);
-		swaps.push([c2, c1]);
 	};
 
 	const sub = (r: number) => {
@@ -210,6 +209,8 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 		for (const [from, to] of swaps.toReversed()) {
 			if (b === to) {
 				b = from;
+			} else if (b === from) {
+				b = to;
 			}
 		}
 		originalButtonIndices[i] = b;
@@ -258,7 +259,10 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 	if (!Number.isFinite(bestResult)) {
 		console.log("Fail", targetValues.join(","));
 	} else {
-		console.log(bestPresses);
+		const normalizedBestPresses = Array.from({ length: m }, (_, i) => {
+			return bestPresses[originalButtonIndices[i]!];
+		});
+		console.log(normalizedBestPresses);
 	}
 
 	return bestResult;
