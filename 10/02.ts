@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 
 async function readInput() {
-	const content = (await fs.readFile("10/demo.txt", "utf-8")).trim();
+	const content = (await fs.readFile("10/input.txt", "utf-8")).trim();
 	return content.split("\n");
 }
 
@@ -36,6 +36,9 @@ const parseDef = (s: string) => {
 	return { buttons, jolts };
 };
 
+const epsilon = 1e-6;
+const isZero = (x: number) => Math.abs(x) < epsilon;
+
 function solve(targetValues: number[], matrixIcidents: number[][]): number {
 	const swaps: [number, number][] = [];
 
@@ -54,7 +57,7 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 		console.log();
 	};
 
-	print();
+	// print();
 
 	const swapRows = (r1: number, r2: number) => {
 		const tmpRow = matrix[r1]!;
@@ -71,13 +74,13 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 			matrix[r]![c1]! = matrix[r]![c2]!;
 			matrix[r]![c2]! = v;
 		}
-		console.log(`Swap ${c1} -> ${c2}`);
+		// console.log(`Swap ${c1} -> ${c2}`);
 		swaps.push([c1, c2]);
 	};
 
 	const sub = (r: number) => {
 		const d = matrix[r]![r]!;
-		if (d === 0) throw new Error("Zero diagonal element");
+		if (isZero(d)) throw new Error("Zero diagonal element");
 		v[r]! /= d;
 		for (let c = 0; c < m; c++) {
 			matrix[r]![c]! /= d;
@@ -85,7 +88,7 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 
 		for (let r2 = r + 1; r2 < n; r2++) {
 			const d = matrix[r2]![r]!;
-			if (d === 0) return;
+			if (isZero(d)) return;
 			v[r2]! -= v[r]! * d;
 			for (let c = r; c < m; c++) {
 				matrix[r2]![c]! -= matrix[r]![c]! * d;
@@ -94,22 +97,22 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 	};
 
 	for (let r = 0; r < n; r++) {
-		console.log(`Row ${r}`);
+		// console.log(`Row ${r}`);
 
 		let r2 = r;
 		while (r2 < n) {
-			if (matrix[r2]![r] !== 0) {
+			if (!isZero(matrix[r2]![r]!)) {
 				r2++;
 				continue;
 			}
 
 			let found = false;
 			for (let r3 = r2 + 1; r3 < n; r3++) {
-				if (matrix[r3]![r] !== 0) {
+				if (!isZero(matrix[r3]![r]!)) {
 					found = true;
-					console.log("Swap rows");
+					// console.log("Swap rows");
 					swapRows(r2, r3);
-					print();
+					// print();
 					break;
 				}
 			}
@@ -117,27 +120,38 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 			if (!found) break;
 		}
 
-		if (matrix[r]![r] !== undefined && matrix[r]![r] !== 0) {
-			console.log("Sub");
+		if (isZero(matrix[r]![r]!)) {
+			let found = false;
+			for (let c = r + 1; c < m; c++) {
+				if (!isZero(matrix[r]![c]!)) {
+					found = true;
+					// console.log("Swap cols");
+					swapCols(r, c);
+					// print();
+					break;
+				}
+			}
+			if (!found) break;
+		}
+
+		if (matrix[r]![r] !== undefined && !isZero(matrix[r]![r]!)) {
+			// console.log("Sub");
 			sub(r);
-			print();
+			// print();
 		}
 	}
-
-	const epsilon = 1e-6;
 
 	for (let r = n - 1; r >= 0; r--) {
 		if (matrix[r]!.every((x) => Math.abs(x) < epsilon)) {
-			if (Math.abs(v[r]!) > epsilon)
-				throw new Error("Non-zero value in zero row");
-			console.log(`Removing zero row ${r}`);
+			if (!isZero(v[r]!)) throw new Error("Non-zero value in zero row");
+			// console.log(`Removing zero row ${r}`);
 			matrix.splice(r, 1);
 			v.splice(r, 1);
-			print();
+			// print();
 		}
 	}
 
-	print();
+	// print();
 
 	const freeVarsCount = matrix[0]!.length - matrix.length;
 
@@ -218,7 +232,7 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 	}
 
 	if (!Number.isFinite(bestResult)) {
-		console.log(targetValues.join(","));
+		console.log("Fail", targetValues.join(","));
 	}
 
 	return bestResult;
