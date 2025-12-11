@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 
 async function readInput() {
-	const content = (await fs.readFile("10/demo.txt", "utf-8")).trim();
+	const content = (await fs.readFile("10/input.txt", "utf-8")).trim();
 	return content.split("\n");
 }
 
@@ -44,6 +44,7 @@ function solve(targetValues: number[], matrixIndices: number[][]): number {
 	);
 	const v = targetValues;
 
+	// Diagonalize matrix
 	const print = () => {
 		console.log(matrix.map((r, i) => r.join(" ") + " | " + v[i]).join("\n"));
 		console.log();
@@ -87,7 +88,7 @@ function solve(targetValues: number[], matrixIndices: number[][]): number {
 	};
 
 	for (let r = 0; r < n; r++) {
-		console.log(`Row ${r}`);
+		// console.log(`Row ${r}`);
 
 		let r2 = r;
 		while (r2 < n) {
@@ -100,9 +101,9 @@ function solve(targetValues: number[], matrixIndices: number[][]): number {
 			for (let r3 = r2 + 1; r3 < n; r3++) {
 				if (matrix[r3]![r] !== 0) {
 					found = true;
-					console.log("Swap rows");
+					// console.log("Swap rows");
 					swapRows(r2, r3);
-					print();
+					// print();
 					break;
 				}
 			}
@@ -111,22 +112,22 @@ function solve(targetValues: number[], matrixIndices: number[][]): number {
 		}
 
 		if (matrix[r]![r] !== undefined && matrix[r]![r] !== 0) {
-			console.log("Sub");
+			// console.log("Sub");
 			sub(r);
-			print();
+			// print();
 		}
 	}
 
 	for (let c = 0; c < m && c < n; c++) {
-		console.log(`Column ${c}`);
+		// console.log(`Column ${c}`);
 		if (matrix[c]![c] !== 0) continue;
 		let found = false;
 		for (let c2 = c + 1; c2 < m; c2++) {
 			if (matrix[c]![c2] !== 0) {
 				found = true;
-				console.log("Swap cols");
+				// console.log("Swap cols");
 				swapCols(c, c2);
-				print();
+				// print();
 				break;
 			}
 		}
@@ -137,14 +138,45 @@ function solve(targetValues: number[], matrixIndices: number[][]): number {
 	for (let r = n - 1; r >= 0; r--) {
 		if (!matrix[r]!.every((x) => x === 0)) break;
 		if (v[r] !== 0) throw new Error("Non-zero value in zero row");
-		console.log(`Removing zero row ${r}`);
+		// console.log(`Removing zero row ${r}`);
 		matrix.pop();
 		v.pop();
-		print();
+		// print();
 	}
 
+	print();
+
 	const freeVarsCount = matrix[0]!.length - matrix.length;
-	console.log({ freeVarsCount });
+
+	// coeffs are {freeVarsCount+1} long, first {freeVarsCount} are coefficients for x_free_{i}
+	// the last is free term
+	const coeffs = Array.from({ length: freeVarsCount }, (_, i) =>
+		Array.from({ length: freeVarsCount + 1 }, (_, j) =>
+			i === j ? 1 : (0 as number)
+		)
+	);
+
+	for (let i = m - freeVarsCount - 1; i >= 0; i--) {
+		const row = matrix[i]!;
+		const currCoeffs = Array.from({ length: freeVarsCount + 1 }, () => 0);
+		currCoeffs[currCoeffs.length - 1] = v[i]!;
+		for (let j = m - 1; j > i; j--) {
+			const c = row[j]!;
+			const jCoeffs = coeffs[j - i - 1]!;
+			for (let p = freeVarsCount; p >= 0; p--) {
+				currCoeffs[p]! -= c * jCoeffs[p]!;
+			}
+		}
+
+		coeffs.unshift(currCoeffs);
+	}
+
+	// Add together each var (free and non-free) to get the linar combination of free vars
+	const finalCoeffs = Array.from({ length: freeVarsCount + 1 }, (_, i) =>
+		coeffs.map((row) => row[i]!).reduce((a, b) => a + b)
+	);
+
+	console.log(finalCoeffs);
 
 	return 0;
 }
@@ -154,7 +186,7 @@ async function main() {
 	const defs = input.filter(Boolean).map(parseDef);
 
 	let res = 0;
-	for (const def of defs.slice(2)) {
+	for (const def of defs) {
 		// console.log(def);
 		const best = solve(def.jolts, def.buttons);
 		// console.log({ best });
