@@ -80,6 +80,7 @@ function diagonalize(matrix: number[][], v: number[]) {
 		}
 		// console.log(`Swap ${c1} -> ${c2}`);
 		swaps.push([c1, c2]);
+		swaps.push([c2, c1]);
 	};
 
 	const sub = (r: number) => {
@@ -203,22 +204,25 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 	const { freeVarsCount, coeffs } = solve(matrix, v, m);
 
 	// trace free variables to the original button numbers
-	const freeButtons = Array.from(
-		{ length: freeVarsCount },
-		(_, i) => m - freeVarsCount + i
-	);
-	for (let i = m - 1; i >= m - freeVarsCount; i--) {
+	const originalButtonIndices = Array.from({ length: m }, (_, i) => i);
+	for (let i = m - 1; i >= 0; i--) {
 		let b = i;
 		for (const [from, to] of swaps.toReversed()) {
 			if (b === to) {
 				b = from;
 			}
 		}
-		freeButtons[i - (m - freeVarsCount)] = b;
+		originalButtonIndices[i] = b;
 	}
+	console.log(originalButtonIndices);
+	const freeButtonIndices = Array.from(
+		{ length: freeVarsCount },
+		(_, i) => m - freeVarsCount + i
+	);
 
 	let bestResult = Infinity;
-	const experiments = [[freeButtons, [] as number[]] as const];
+	let bestPresses: number[] = [];
+	const experiments = [[freeButtonIndices, [] as number[]] as const];
 	let experiment: (typeof experiments)[number] | undefined;
 
 	while ((experiment = experiments.pop())) {
@@ -245,11 +249,16 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 
 		if (allPresses.some((x) => x < -epsilon)) continue;
 		const totalPresses = allPresses.reduce((a, b) => a + b);
-		bestResult = Math.min(bestResult, totalPresses);
+		if (totalPresses < bestResult) {
+			bestPresses = allPresses;
+			bestResult = totalPresses;
+		}
 	}
 
 	if (!Number.isFinite(bestResult)) {
 		console.log("Fail", targetValues.join(","));
+	} else {
+		console.log(bestPresses);
 	}
 
 	return bestResult;
