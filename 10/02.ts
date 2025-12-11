@@ -40,13 +40,34 @@ const parseDef = (s: string) => {
 const zero = new Fraction(0, 1);
 const isZero = (x: Fraction | undefined) => x !== undefined && x.equals(zero);
 
+const DEBUG = false;
+
+const printMatrix = (matrix: Fraction[][], v: Fraction[]) => {
+	if (!DEBUG) return;
+	console.log(
+		matrix
+			.map(
+				(r, i) =>
+					r.map((x) => x.toString().padStart(3, " ")).join(" ") +
+					" | " +
+					v[i]!.toString().padStart(3, " ")
+			)
+			.join("\n")
+	);
+	console.log();
+};
+const log = (s: string) => {
+	if (!DEBUG) return;
+	console.log(s);
+};
+
 function diagonalize(matrix: Fraction[][], v: Fraction[]) {
 	matrix = matrix.map((r) => r.slice());
 	v = v.slice();
 
 	const swaps: [number, number][] = [];
 
-	const n = matrix.length;
+	let n = matrix.length;
 	const m = matrix[0]!.length;
 
 	if (v.length !== n) {
@@ -56,17 +77,7 @@ function diagonalize(matrix: Fraction[][], v: Fraction[]) {
 		throw new Error("Matrix must be rectangular");
 	}
 
-	const DEBUG = true;
-
-	const print = () => {
-		if (!DEBUG) return;
-		console.log(matrix.map((r, i) => r.join(" ") + " | " + v[i]).join("\n"));
-		console.log();
-	};
-	const log = (s: string) => {
-		if (!DEBUG) return;
-		console.log(s);
-	};
+	const print = () => printMatrix(matrix, v);
 
 	print();
 
@@ -149,15 +160,16 @@ function diagonalize(matrix: Fraction[][], v: Fraction[]) {
 			sub(r);
 			print();
 		}
-	}
 
-	for (let r = n - 1; r >= 0; r--) {
-		if (matrix[r]!.every(isZero)) {
-			if (!isZero(v[r]!)) throw new Error("Non-zero value in zero row");
-			log(`Removing zero row ${r}`);
-			matrix.splice(r, 1);
-			v.splice(r, 1);
-			print();
+		for (let r1 = n - 1; r1 > r; r1--) {
+			if (matrix[r1]!.every(isZero)) {
+				if (!isZero(v[r1]!)) throw new Error("Non-zero value in zero row");
+				log(`Removing zero row ${r1}`);
+				matrix.splice(r1, 1);
+				v.splice(r1, 1);
+				n--;
+				print();
+			}
 		}
 	}
 
@@ -216,6 +228,8 @@ function solve(
 		{ length: freeVarsCount },
 		(_, i) => originalVarIndices[totalVarsCount - freeVarsCount + i]
 	);
+
+	log("Free vars: " + freeVarIndices.join(", "));
 
 	const originalCoeffs: Fraction[][] = [];
 	for (const [newIndex, originalIndex] of originalVarIndices.entries()) {
@@ -304,7 +318,7 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 }
 
 // .filter(
-// 	(d) => d.jolts.join(",") === "24,24,32,187,27"
+// 	(d) => d.jolts.join(",") === "26,36,33,26,32,11"
 // )
 
 async function main() {
