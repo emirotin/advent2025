@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 
 async function readInput() {
-	const content = (await fs.readFile("10/input.txt", "utf-8")).trim();
+	const content = (await fs.readFile("10/demo.txt", "utf-8")).trim();
 	return content.split("\n");
 }
 
@@ -36,80 +36,117 @@ const parseDef = (s: string) => {
 	return { buttons, jolts };
 };
 
-const gcd = (a: bigint, b: bigint) => {
-	let [x, y] = [a, b];
-	while (true) {
-		if (x < y) {
-			[x, y] = [y, x];
+function solve(targetValues: number[], matrixIndices: number[][]): number {
+	const n = targetValues.length;
+	const m = matrixIndices.length;
+	const matrix = Array.from({ length: n }, (_, r) =>
+		Array.from({ length: m }, (_, c) => (matrixIndices[c]?.includes(r) ? 1 : 0))
+	);
+	const v = targetValues;
+
+	const print = () => {
+		console.log(matrix.map((r, i) => r.join(" ") + " | " + v[i]).join("\n"));
+		console.log();
+	};
+
+	print();
+
+	const swapRows = (r1: number, r2: number) => {
+		const tmpRow = matrix[r1]!;
+		matrix[r1] = matrix[r2]!;
+		matrix[r2] = tmpRow;
+		const tmpV = v[r1]!;
+		v[r1] = v[r2]!;
+		v[r2] = tmpV;
+	};
+
+	const swapCols = (c1: number, c2: number) => {
+		for (let r = 0; r < n; r++) {
+			const v = matrix[r]![c1]!;
+			matrix[r]![c1]! = matrix[r]![c2]!;
+			matrix[r]![c2]! = v;
 		}
-		if (y === 0n) {
-			return x;
+	};
+
+	const sub = (r: number) => {
+		const d = matrix[r]![r]!;
+		if (d === 0) throw new Error("Zero diagonal element");
+		v[r]! /= d;
+		for (let c = 0; c < m; c++) {
+			matrix[r]![c]! /= d;
 		}
-		[x, y] = [x % y, y];
+
+		for (let r2 = r + 1; r2 < n; r2++) {
+			const d = matrix[r2]![r]!;
+			if (d === 0) return;
+			v[r2]! -= v[r]! * d;
+			for (let c = r; c < m; c++) {
+				matrix[r2]![c]! -= matrix[r]![c]! * d;
+			}
+		}
+	};
+
+	for (let r = 0; r < n; r++) {
+		console.log(`Row ${r}`);
+
+		let r2 = r;
+		while (r2 < n) {
+			if (matrix[r2]![r] !== 0) {
+				r2++;
+				continue;
+			}
+
+			let found = false;
+			for (let r3 = r2 + 1; r3 < n; r3++) {
+				if (matrix[r3]![r] !== 0) {
+					found = true;
+					console.log("Swap rows");
+					swapRows(r2, r3);
+					print();
+					break;
+				}
+			}
+
+			if (!found) break;
+		}
+
+		if (matrix[r]![r] !== undefined && matrix[r]![r] !== 0) {
+			console.log("Sub");
+			sub(r);
+			print();
+		}
 	}
-};
 
-const isDivisible = (a: bigint, b: bigint) => {
-	return a % b === 0n;
-};
-
-function findMinimalCombination(
-	targetArray: number[],
-	incrementArrays: number[][]
-): number {
-	const base = BigInt(1 + Math.max(...targetArray));
-	const toBased = (ns: number[]) =>
-		ns.reduce((acc, n) => acc * base + BigInt(n), 0n);
-
-	const increments = incrementArrays
-		.map((arr) => {
-			const positions = targetArray.map((_, i) => (arr.includes(i) ? 1 : 0));
-			return toBased(positions);
-		})
-		.toSorted((a, b) => {
-			if (a > b) return 1;
-			if (a < b) return -1;
-			return 0;
-		});
-
-	const experiments = [
-		[toBased(targetArray), increments, 0 as number] as const,
-	];
-	let bestResult = Infinity;
-
-	let experiment: (typeof experiments)[number] | undefined;
-	while ((experiment = experiments.pop())) {
-		let [target, increments, currentCount] = experiment;
-		if (currentCount >= bestResult) continue;
-		if (target < 0n) continue;
-		if (target === 0n) {
-			bestResult = Math.min(bestResult, currentCount);
-			continue;
+	for (let c = 0; c < m && c < n; c++) {
+		console.log(`Column ${c}`);
+		if (matrix[c]![c] !== 0) continue;
+		let found = false;
+		for (let c2 = c + 1; c2 < m; c2++) {
+			if (matrix[c]![c2] !== 0) {
+				found = true;
+				console.log("Swap cols");
+				swapCols(c, c2);
+				print();
+				break;
+			}
 		}
-		if (!increments.length) continue;
 
-		const d = increments.length === 1 ? increments[0]! : increments.reduce(gcd);
-		if (!isDivisible(target, d)) continue;
-		target /= d;
-		increments = increments.map((x) => x / d);
-
-		if (d > 1n) console.log("gcd", d);
-		return 0;
-
-		const [inc, ...restIncrements] = increments;
-		const maxPossibleCoeff = Number(target / inc!);
-		for (let c = maxPossibleCoeff; c >= 0; c--) {
-			experiments.push([
-				target - BigInt(c) * inc!,
-				restIncrements,
-				currentCount + c,
-			] as const);
-		}
-		// console.log(experiments.length, increments.length);
+		if (!found) break;
 	}
 
-	if (!Number.isFinite(bestResult)) throw new Error("No solution found");
-	return bestResult;
+	for (let r = n - 1; r >= 0; r--) {
+		if (!matrix[r]!.every((x) => x === 0)) break;
+		if (v[r] !== 0) throw new Error("Non-zero value in zero row");
+		console.log(`Removing zero row ${r}`);
+		matrix.pop();
+		v.pop();
+		print();
+	}
+
+	const freeVarsCount = matrix[0]!.length - matrix.length;
+	console.log({ freeVarsCount });
+
+	return 0;
 }
 
 async function main() {
@@ -117,9 +154,9 @@ async function main() {
 	const defs = input.filter(Boolean).map(parseDef);
 
 	let res = 0;
-	for (const def of defs) {
+	for (const def of defs.slice(2)) {
 		// console.log(def);
-		const best = findMinimalCombination(def.jolts, def.buttons);
+		const best = solve(def.jolts, def.buttons);
 		// console.log({ best });
 		res += best;
 	}
