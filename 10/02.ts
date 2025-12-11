@@ -39,17 +39,21 @@ const parseDef = (s: string) => {
 const epsilon = 1e-6;
 const isZero = (x: number) => Math.abs(x) < epsilon;
 
-function solve(targetValues: number[], matrixIcidents: number[][]): number {
+function diagonalize(matrix: number[][], v: number[]) {
+	matrix = matrix.map((r) => r.slice());
+	v = v.slice();
+
 	const swaps: [number, number][] = [];
 
-	const n = targetValues.length;
-	const m = matrixIcidents.length;
-	const matrix = Array.from({ length: n }, (_, r) =>
-		Array.from({ length: m }, (_, c) =>
-			matrixIcidents[c]?.includes(r) ? 1 : 0
-		)
-	);
-	const v = [...targetValues];
+	const n = matrix.length;
+	const m = matrix[0]!.length;
+
+	if (v.length !== n) {
+		throw new Error("Vector must have the same length");
+	}
+	if (matrix.some((r) => r.length !== m)) {
+		throw new Error("Matrix must be rectangular");
+	}
 
 	// Diagonalize matrix
 	const print = () => {
@@ -151,12 +155,26 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 		}
 	}
 
+	return { matrix, v, swaps };
+}
+
+function solve(targetValues: number[], matrixIcidents: number[][]): number {
+	const n = targetValues.length;
+	const m = matrixIcidents.length;
+	const originaMatrix = Array.from({ length: n }, (_, r) =>
+		Array.from({ length: m }, (_, c) =>
+			matrixIcidents[c]?.includes(r) ? 1 : 0
+		)
+	);
+
+	const { matrix, v, swaps } = diagonalize(originaMatrix, targetValues);
+
 	// print();
 
-	const freeVarsCount = matrix[0]!.length - matrix.length;
+	const freeVarsCount = m - matrix.length;
 
 	// coeffs are {freeVarsCount+1} long, first {freeVarsCount} are coefficients for x_free_{i}
-	// the last is free term
+	// the last is the free term
 	const coeffs = Array.from({ length: freeVarsCount }, (_, i) =>
 		Array.from({ length: freeVarsCount + 1 }, (_, j) =>
 			i === j ? 1 : (0 as number)
@@ -177,13 +195,6 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 
 		coeffs.unshift(currCoeffs);
 	}
-
-	// // Add together each var (free and non-free) to get the linar combination of free vars
-	// const finalCoeffs = Array.from({ length: freeVarsCount + 1 }, (_, i) =>
-	// 	coeffs.map((row) => row[i]!).reduce((a, b) => a + b)
-	// );
-
-	// console.log(finalCoeffs);
 
 	// trace free variables to the original button numbers
 	const freeButtons = Array.from(
@@ -226,9 +237,9 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 			return Math.round(result);
 		});
 
-		if (allPresses.some((x) => x < 0)) continue;
-		const currentPresses = allPresses.reduce((a, b) => a + b);
-		bestResult = Math.min(bestResult, currentPresses);
+		if (allPresses.some((x) => x < -epsilon)) continue;
+		const totalPresses = allPresses.reduce((a, b) => a + b);
+		bestResult = Math.min(bestResult, totalPresses);
 	}
 
 	if (!Number.isFinite(bestResult)) {
@@ -244,9 +255,7 @@ async function main() {
 
 	let res = 0;
 	for (const def of defs) {
-		// console.log(def);
 		const best = solve(def.jolts, def.buttons);
-		console.log({ best });
 		res += best;
 	}
 
