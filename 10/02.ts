@@ -161,6 +161,7 @@ function diagonalize(matrix: number[][], v: number[]) {
 function solve(
 	diagonalMatrix: number[][],
 	v: number[],
+	swaps: [number, number][],
 	totalVarsCount: number
 ) {
 	const freeVarsCount = totalVarsCount - diagonalMatrix.length;
@@ -188,7 +189,33 @@ function solve(
 		coeffs.unshift(currCoeffs);
 	}
 
-	return { freeVarsCount, coeffs };
+	// trace all variables to the original button numbers
+	const originalVarIndices = Array.from(
+		{ length: totalVarsCount },
+		(_, i) => i
+	);
+	for (let i = totalVarsCount - 1; i >= 0; i--) {
+		let b = i;
+		for (const [from, to] of swaps.toReversed()) {
+			if (b === to) {
+				b = from;
+			} else if (b === from) {
+				b = to;
+			}
+		}
+		originalVarIndices[i] = b;
+	}
+	const freeVarIndices = Array.from(
+		{ length: freeVarsCount },
+		(_, i) => originalVarIndices[totalVarsCount - freeVarsCount + i]
+	);
+
+	const originalCoeffs: number[][] = [];
+	for (const [newIndex, originalIndex] of originalVarIndices.entries()) {
+		originalCoeffs[originalIndex] = coeffs[newIndex]!;
+	}
+
+	return { freeVarIndices, coeffs: originalCoeffs };
 }
 
 function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
@@ -200,24 +227,11 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 
 	const { matrix, v, swaps } = diagonalize(originaMatrix, targetValues);
 
-	const { freeVarsCount, coeffs } = solve(matrix, v, m);
-
-	// trace free variables to the original button numbers
-	const originalButtonIndices = Array.from({ length: m }, (_, i) => i);
-	for (let i = m - 1; i >= 0; i--) {
-		let b = i;
-		for (const [from, to] of swaps.toReversed()) {
-			if (b === to) {
-				b = from;
-			} else if (b === from) {
-				b = to;
-			}
-		}
-		originalButtonIndices[i] = b;
-	}
-	const freeButtonIndices = Array.from(
-		{ length: freeVarsCount },
-		(_, i) => originalButtonIndices[m - freeVarsCount + i]
+	const { freeVarIndices: freeButtonIndices, coeffs } = solve(
+		matrix,
+		v,
+		swaps,
+		m
 	);
 
 	let bestResult = Infinity;
@@ -241,7 +255,7 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 		const allPresses = Array.from({ length: m }, (_, i) => {
 			const buttonCoeffs = coeffs[i]!;
 			let result = buttonCoeffs.at(-1)!;
-			for (let i = 0; i < freeVarsCount; i++) {
+			for (let i = 0; i < freeButtonIndices.length; i++) {
 				result += buttonCoeffs[i]! * freeButtonPresses[i]!;
 			}
 			return Math.round(result);
@@ -258,10 +272,7 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 	if (!Number.isFinite(bestResult)) {
 		console.log("Fail", targetValues.join(","));
 	} else {
-		const normalizedBestPresses = Array.from({ length: m }, (_, i) => {
-			return bestPresses[originalButtonIndices[i]!];
-		});
-		// console.log(normalizedBestPresses);
+		// console.log(bestPresses);
 	}
 
 	return bestResult;
