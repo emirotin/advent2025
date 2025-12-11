@@ -215,10 +215,9 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 		}
 		originalButtonIndices[i] = b;
 	}
-	console.log(originalButtonIndices);
 	const freeButtonIndices = Array.from(
 		{ length: freeVarsCount },
-		(_, i) => m - freeVarsCount + i
+		(_, i) => originalButtonIndices[m - freeVarsCount + i]
 	);
 
 	let bestResult = Infinity;
@@ -262,7 +261,7 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 		const normalizedBestPresses = Array.from({ length: m }, (_, i) => {
 			return bestPresses[originalButtonIndices[i]!];
 		});
-		console.log(normalizedBestPresses);
+		// console.log(normalizedBestPresses);
 	}
 
 	return bestResult;
