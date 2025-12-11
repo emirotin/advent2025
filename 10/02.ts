@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 
 async function readInput() {
-	const content = (await fs.readFile("10/input.txt", "utf-8")).trim();
+	const content = (await fs.readFile("10/demo.txt", "utf-8")).trim();
 	return content.split("\n");
 }
 
@@ -36,11 +36,15 @@ const parseDef = (s: string) => {
 	return { buttons, jolts };
 };
 
-function solve(targetValues: number[], matrixIndices: number[][]): number {
+function solve(targetValues: number[], matrixIcidents: number[][]): number {
+	const swaps: [number, number][] = [];
+
 	const n = targetValues.length;
-	const m = matrixIndices.length;
+	const m = matrixIcidents.length;
 	const matrix = Array.from({ length: n }, (_, r) =>
-		Array.from({ length: m }, (_, c) => (matrixIndices[c]?.includes(r) ? 1 : 0))
+		Array.from({ length: m }, (_, c) =>
+			matrixIcidents[c]?.includes(r) ? 1 : 0
+		)
 	);
 	const v = targetValues;
 
@@ -67,6 +71,8 @@ function solve(targetValues: number[], matrixIndices: number[][]): number {
 			matrix[r]![c1]! = matrix[r]![c2]!;
 			matrix[r]![c2]! = v;
 		}
+		console.log(`Swap ${c1} -> ${c2}`);
+		swaps.push([c1, c2]);
 	};
 
 	const sub = (r: number) => {
@@ -178,7 +184,55 @@ function solve(targetValues: number[], matrixIndices: number[][]): number {
 
 	console.log(finalCoeffs);
 
-	return 0;
+	// trace free variables to the original button numbers
+	const freeButtons = Array.from(
+		{ length: freeVarsCount },
+		(_, i) => m - freeVarsCount + i
+	);
+	for (let i = m - 1; i >= m - freeVarsCount; i--) {
+		let b = i;
+		for (const [from, to] of swaps.toReversed()) {
+			if (b === to) {
+				b = from;
+			}
+		}
+		freeButtons[i - (m - freeVarsCount)] = b;
+	}
+
+	let bestResult = Infinity;
+	const experiments = [[freeButtons, [] as number[]] as const];
+	let experiment: (typeof experiments)[number] | undefined;
+
+	while ((experiment = experiments.pop())) {
+		const [availableButtons, freeButtonPresses] = experiment;
+		if (availableButtons.length > 0) {
+			const [b, ...restButtons] = availableButtons;
+			const maxPresses = Math.min(
+				...matrixIcidents[b!]!.map((i) => targetValues[i]!)
+			);
+			for (let p = 0; p <= maxPresses; p++) {
+				experiments.push([restButtons, freeButtonPresses.concat(p)]);
+			}
+			continue;
+		}
+
+		const allPresses = freeButtonPresses.concat(
+			Array.from({ length: n - freeVarsCount }, (_, i) => {
+				const buttonCoeffs = coeffs[i]!;
+				let result = buttonCoeffs.at(-1)!;
+				for (let i = 0; i < freeVarsCount; i++) {
+					result += buttonCoeffs[i]! * freeButtonPresses[i]!;
+				}
+				return result;
+			})
+		);
+
+		if (allPresses.some((x) => x < 0)) continue;
+		const currentPresses = allPresses.reduce((a, b) => a + b);
+		bestResult = Math.min(bestResult, currentPresses);
+	}
+
+	return bestResult;
 }
 
 async function main() {
