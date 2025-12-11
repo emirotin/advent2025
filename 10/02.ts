@@ -158,20 +158,12 @@ function diagonalize(matrix: number[][], v: number[]) {
 	return { matrix, v, swaps };
 }
 
-function solve(targetValues: number[], matrixIcidents: number[][]): number {
-	const n = targetValues.length;
-	const m = matrixIcidents.length;
-	const originaMatrix = Array.from({ length: n }, (_, r) =>
-		Array.from({ length: m }, (_, c) =>
-			matrixIcidents[c]?.includes(r) ? 1 : 0
-		)
-	);
-
-	const { matrix, v, swaps } = diagonalize(originaMatrix, targetValues);
-
-	// print();
-
-	const freeVarsCount = m - matrix.length;
+function solve(
+	diagonalMatrix: number[][],
+	v: number[],
+	totalVarsCount: number
+) {
+	const freeVarsCount = totalVarsCount - diagonalMatrix.length;
 
 	// coeffs are {freeVarsCount+1} long, first {freeVarsCount} are coefficients for x_free_{i}
 	// the last is the free term
@@ -181,11 +173,11 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 		)
 	);
 
-	for (let i = m - freeVarsCount - 1; i >= 0; i--) {
-		const row = matrix[i]!;
+	for (let i = totalVarsCount - freeVarsCount - 1; i >= 0; i--) {
+		const row = diagonalMatrix[i]!;
 		const currCoeffs = Array.from({ length: freeVarsCount + 1 }, () => 0);
 		currCoeffs[currCoeffs.length - 1] = v[i]!;
-		for (let j = m - 1; j > i; j--) {
+		for (let j = totalVarsCount - 1; j > i; j--) {
 			const c = row[j]!;
 			const jCoeffs = coeffs[j - i - 1]!;
 			for (let p = freeVarsCount; p >= 0; p--) {
@@ -195,6 +187,20 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 
 		coeffs.unshift(currCoeffs);
 	}
+
+	return { freeVarsCount, coeffs };
+}
+
+function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
+	const n = targetValues.length;
+	const m = adjMatrix.length;
+	const originaMatrix = Array.from({ length: n }, (_, r) =>
+		Array.from({ length: m }, (_, c) => (adjMatrix[c]?.includes(r) ? 1 : 0))
+	);
+
+	const { matrix, v, swaps } = diagonalize(originaMatrix, targetValues);
+
+	const { freeVarsCount, coeffs } = solve(matrix, v, m);
 
 	// trace free variables to the original button numbers
 	const freeButtons = Array.from(
@@ -220,7 +226,7 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 		if (availableButtons.length > 0) {
 			const [b, ...restButtons] = availableButtons;
 			const maxPresses = Math.min(
-				...matrixIcidents[b!]!.map((i) => targetValues[i]!)
+				...adjMatrix[b!]!.map((i) => targetValues[i]!)
 			);
 			for (let p = 0; p <= maxPresses; p++) {
 				experiments.push([restButtons, freeButtonPresses.concat(p)]);
@@ -255,7 +261,7 @@ async function main() {
 
 	let res = 0;
 	for (const def of defs) {
-		const best = solve(def.jolts, def.buttons);
+		const best = findOptimal(def.jolts, def.buttons);
 		res += best;
 	}
 
