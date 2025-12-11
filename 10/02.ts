@@ -56,13 +56,19 @@ function diagonalize(matrix: Fraction[][], v: Fraction[]) {
 		throw new Error("Matrix must be rectangular");
 	}
 
-	// Diagonalize matrix
+	const DEBUG = true;
+
 	const print = () => {
+		if (!DEBUG) return;
 		console.log(matrix.map((r, i) => r.join(" ") + " | " + v[i]).join("\n"));
 		console.log();
 	};
+	const log = (s: string) => {
+		if (!DEBUG) return;
+		console.log(s);
+	};
 
-	// print();
+	print();
 
 	const swapRows = (r1: number, r2: number) => {
 		const tmpRow = matrix[r1]!;
@@ -79,7 +85,7 @@ function diagonalize(matrix: Fraction[][], v: Fraction[]) {
 			matrix[r]![c1]! = matrix[r]![c2]!;
 			matrix[r]![c2]! = v;
 		}
-		// console.log(`Swap ${c1} -> ${c2}`);
+		log(`Swap ${c1} -> ${c2}`);
 		swaps.push([c1, c2]);
 	};
 
@@ -102,7 +108,7 @@ function diagonalize(matrix: Fraction[][], v: Fraction[]) {
 	};
 
 	for (let r = 0; r < n; r++) {
-		// console.log(`Row ${r}`);
+		log(`Row ${r}`);
 		let r2 = r;
 		while (r2 < n) {
 			if (!isZero(matrix[r2]![r]!)) {
@@ -114,9 +120,9 @@ function diagonalize(matrix: Fraction[][], v: Fraction[]) {
 			for (let r3 = r2 + 1; r3 < n; r3++) {
 				if (!isZero(matrix[r3]![r]!)) {
 					found = true;
-					// console.log("Swap rows");
+					log("Swap rows");
 					swapRows(r2, r3);
-					// print();
+					print();
 					break;
 				}
 			}
@@ -129,9 +135,9 @@ function diagonalize(matrix: Fraction[][], v: Fraction[]) {
 			for (let c = r + 1; c < m; c++) {
 				if (!isZero(matrix[r]![c]!)) {
 					found = true;
-					// console.log("Swap cols");
+					log("Swap cols");
 					swapCols(r, c);
-					// print();
+					print();
 					break;
 				}
 			}
@@ -139,19 +145,19 @@ function diagonalize(matrix: Fraction[][], v: Fraction[]) {
 		}
 
 		if (matrix[r]![r] !== undefined && !isZero(matrix[r]![r]!)) {
-			// console.log("Sub");
+			log("Sub");
 			sub(r);
-			// print();
+			print();
 		}
 	}
 
 	for (let r = n - 1; r >= 0; r--) {
 		if (matrix[r]!.every(isZero)) {
 			if (!isZero(v[r]!)) throw new Error("Non-zero value in zero row");
-			// console.log(`Removing zero row ${r}`);
+			log(`Removing zero row ${r}`);
 			matrix.splice(r, 1);
 			v.splice(r, 1);
-			// print();
+			print();
 		}
 	}
 
@@ -275,36 +281,38 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 		if (totalPresses < bestResult) {
 			bestPresses = allPresses;
 			bestResult = totalPresses;
-		}
 
-		const allTargets = Array.from({ length: targetValues.length }, (_, i) => {
-			const relevantButtons = adjMatrix
-				.map((b, bi) => (b.includes(i) ? bi : null))
-				.filter((x) => x !== null);
-			return relevantButtons
-				.map((bi) => allPresses[bi]!)
-				.reduce((a, b) => a.add(b))
-				.round()
-				.valueOf();
-		});
-		if (targetValues.join(",") !== allTargets.join(",")) {
-			console.log("Mismatch!");
-			console.log("Target:", targetValues.join(","));
-			console.log("Actual:", allTargets.join(","));
+			const allTargets = Array.from({ length: targetValues.length }, (_, i) => {
+				const relevantButtons = adjMatrix
+					.map((b, bi) => (b.includes(i) ? bi : null))
+					.filter((x) => x !== null);
+				return relevantButtons
+					.map((bi) => allPresses[bi]!)
+					.reduce((a, b) => a.add(b))
+					.round()
+					.valueOf();
+			});
+			if (targetValues.join(",") !== allTargets.join(",")) {
+				console.log("Mismatch!");
+				console.log("Target:", targetValues.join(","));
+				console.log("Actual:", allTargets.join(","));
+			}
 		}
 	}
 
 	return bestResult;
 }
 
+// .filter(
+// 	(d) => d.jolts.join(",") === "24,24,32,187,27"
+// )
+
 async function main() {
 	const input = await readInput();
 	const defs = input.filter(Boolean).map(parseDef);
 
 	let res = 0;
-	for (const def of defs.filter(
-		(d) => d.jolts.join(",") === "24,24,32,187,27"
-	)) {
+	for (const def of defs) {
 		const best = findOptimal(def.jolts, def.buttons);
 		res += best;
 	}
