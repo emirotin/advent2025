@@ -46,7 +46,7 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 			matrixIcidents[c]?.includes(r) ? 1 : 0
 		)
 	);
-	const v = targetValues;
+	const v = [...targetValues];
 
 	// Diagonalize matrix
 	const print = () => {
@@ -177,12 +177,12 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 		coeffs.unshift(currCoeffs);
 	}
 
-	// Add together each var (free and non-free) to get the linar combination of free vars
-	const finalCoeffs = Array.from({ length: freeVarsCount + 1 }, (_, i) =>
-		coeffs.map((row) => row[i]!).reduce((a, b) => a + b)
-	);
+	// // Add together each var (free and non-free) to get the linar combination of free vars
+	// const finalCoeffs = Array.from({ length: freeVarsCount + 1 }, (_, i) =>
+	// 	coeffs.map((row) => row[i]!).reduce((a, b) => a + b)
+	// );
 
-	console.log(finalCoeffs);
+	// console.log(finalCoeffs);
 
 	// trace free variables to the original button numbers
 	const freeButtons = Array.from(
@@ -216,16 +216,15 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 			continue;
 		}
 
-		const allPresses = freeButtonPresses.concat(
-			Array.from({ length: n - freeVarsCount }, (_, i) => {
-				const buttonCoeffs = coeffs[i]!;
-				let result = buttonCoeffs.at(-1)!;
-				for (let i = 0; i < freeVarsCount; i++) {
-					result += buttonCoeffs[i]! * freeButtonPresses[i]!;
-				}
-				return result;
-			})
-		);
+		const allPresses = Array.from({ length: m }, (_, i) => {
+			const buttonCoeffs = coeffs[i]!;
+			let result = buttonCoeffs.at(-1)!;
+			for (let i = 0; i < freeVarsCount; i++) {
+				result += buttonCoeffs[i]! * freeButtonPresses[i]!;
+			}
+			return result;
+		});
+		console.log(allPresses);
 
 		if (allPresses.some((x) => x < 0)) continue;
 		const currentPresses = allPresses.reduce((a, b) => a + b);
@@ -240,7 +239,7 @@ async function main() {
 	const defs = input.filter(Boolean).map(parseDef);
 
 	let res = 0;
-	for (const def of defs) {
+	for (const def of defs.slice(1, 2)) {
 		// console.log(def);
 		const best = solve(def.jolts, def.buttons);
 		// console.log({ best });
