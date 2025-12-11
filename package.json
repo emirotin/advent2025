@@ -13,6 +13,7 @@
 	"dependencies": {
 		"@types/lodash": "^4.17.21",
 		"@types/node": "^24.10.1",
+		"fraction.js": "^5.3.4",
 		"lodash": "^4.17.21",
 		"tsx": "^4.21.0"
 	}
