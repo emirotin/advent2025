@@ -40,6 +40,7 @@ const parseDef = (s: string) => {
 const zero = new Fraction(0, 1);
 const one = new Fraction(1, 1);
 const isZero = (x: Fraction | undefined) => x !== undefined && x.equals(zero);
+const isWhole = (x: Fraction) => x.simplify().d === 1n;
 
 const DEBUG = false;
 
@@ -232,12 +233,15 @@ function solve(diagonalMatrix: Fraction[][], v: Fraction[]) {
 	return { freeVarIndices, coeffs };
 }
 
-function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
+function findOptimal(
+	targetValues: number[],
+	buttonsConnections: number[][]
+): number {
 	const n = targetValues.length;
-	const m = adjMatrix.length;
+	const m = buttonsConnections.length;
 	const originaMatrix = Array.from({ length: n }, (_, r) =>
 		Array.from({ length: m }, (_, c) =>
-			adjMatrix[c]?.includes(r) ? one : zero
+			buttonsConnections[c]?.includes(r) ? one : zero
 		)
 	);
 
@@ -258,7 +262,7 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 		if (availableButtons.length > 0) {
 			const [b, ...restButtons] = availableButtons;
 			const maxPresses = Math.min(
-				...adjMatrix[b!]!.map((i) => targetValues[i]!)
+				...buttonsConnections[b!]!.map((i) => targetValues[i]!)
 			);
 			for (let p = 0; p <= maxPresses; p++) {
 				experiments.push([restButtons, freeButtonPresses.concat(p)]);
@@ -275,7 +279,7 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 			return result;
 		});
 
-		if (allPresses.some((x) => x.lt(zero))) continue;
+		if (allPresses.some((x) => x.lt(zero) || !isWhole(x))) continue;
 		const totalPresses = allPresses
 			.reduce((a, b) => a.add(b))
 			.round()
@@ -283,31 +287,30 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 		if (totalPresses < bestResult) {
 			bestPresses = allPresses;
 			bestResult = totalPresses;
-
-			const allTargets = Array.from({ length: targetValues.length }, (_, i) => {
-				const relevantButtons = adjMatrix
-					.map((b, bi) => (b.includes(i) ? bi : null))
-					.filter((x) => x !== null);
-				return relevantButtons
-					.map((bi) => allPresses[bi]!)
-					.reduce((a, b) => a.add(b))
-					.round()
-					.valueOf();
-			});
-			if (targetValues.join(",") !== allTargets.join(",")) {
-				console.log("Mismatch!");
-				console.log("Target:", targetValues.join(","));
-				console.log("Actual:", allTargets.join(","));
-			}
 		}
 	}
 
-	return bestResult;
-}
+	const realResults = Array.from({ length: targetValues.length }, () => 0);
+	for (let bi = 0; bi < buttonsConnections.length; bi++) {
+		const p = bestPresses[bi]!;
+		for (const j of buttonsConnections[bi]!) {
+			realResults[j]! += p.valueOf();
+		}
+	}
 
-// .filter(
-// 	(d) => d.jolts.join(",") === "65,97,74,63,32,50,72,115"
-// )
+	// console.log("presses ", bestPresses.join(","));
+	// console.log("results ", realResults.join(","));
+	// if (targetValues.join(",") !== realResults.join(",")) {
+	// 	console.log("Mismatch!");
+	// 	console.log("Target:", targetValues.join(","));
+	// 	console.log("Actual:", realResults.join(","));
+	// }
+
+	return bestPresses
+		.reduce((a, b) => a.add(b))
+		.round()
+		.valueOf();
+}
 
 async function main() {
 	const input = await readInput();
@@ -315,7 +318,10 @@ async function main() {
 
 	let res = 0;
 	for (const def of defs) {
+		// console.log("expected", def.jolts.join(","));
 		const best = findOptimal(def.jolts, def.buttons);
+		// console.log(best);
+		// console.log();
 		res += best;
 	}
 
