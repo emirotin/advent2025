@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 
 async function readInput() {
-	const content = (await fs.readFile("10/input.txt", "utf-8")).trim();
+	const content = (await fs.readFile("10/demo.txt", "utf-8")).trim();
 	return content.split("\n");
 }
 
@@ -117,23 +117,6 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 			if (!found) break;
 		}
 
-		for (let c = r; c < m && c < n; c++) {
-			// console.log(`Column ${c}`);
-			if (matrix[c]![c] !== 0) continue;
-			let found = false;
-			for (let c2 = c + 1; c2 < m; c2++) {
-				if (matrix[c]![c2] !== 0) {
-					found = true;
-					console.log("Swap cols");
-					swapCols(c, c2);
-					print();
-					break;
-				}
-			}
-
-			if (!found) break;
-		}
-
 		if (matrix[r]![r] !== undefined && matrix[r]![r] !== 0) {
 			console.log("Sub");
 			sub(r);
@@ -144,13 +127,14 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 	const epsilon = 1e-6;
 
 	for (let r = n - 1; r >= 0; r--) {
-		if (!matrix[r]!.every((x) => x === 0)) break;
-		if (Math.abs(v[r]!) > epsilon)
-			throw new Error("Non-zero value in zero row");
-		console.log(`Removing zero row ${r}`);
-		matrix.pop();
-		v.pop();
-		print();
+		if (matrix[r]!.every((x) => Math.abs(x) < epsilon)) {
+			if (Math.abs(v[r]!) > epsilon)
+				throw new Error("Non-zero value in zero row");
+			console.log(`Removing zero row ${r}`);
+			matrix.splice(r, 1);
+			v.splice(r, 1);
+			print();
+		}
 	}
 
 	print();
@@ -225,13 +209,16 @@ function solve(targetValues: number[], matrixIcidents: number[][]): number {
 			for (let i = 0; i < freeVarsCount; i++) {
 				result += buttonCoeffs[i]! * freeButtonPresses[i]!;
 			}
-			return result;
+			return Math.round(result);
 		});
-		console.log(allPresses);
 
 		if (allPresses.some((x) => x < 0)) continue;
 		const currentPresses = allPresses.reduce((a, b) => a + b);
 		bestResult = Math.min(bestResult, currentPresses);
+	}
+
+	if (!Number.isFinite(bestResult)) {
+		console.log(targetValues.join(","));
 	}
 
 	return bestResult;
@@ -245,7 +232,7 @@ async function main() {
 	for (const def of defs) {
 		// console.log(def);
 		const best = solve(def.jolts, def.buttons);
-		// console.log({ best });
+		console.log({ best });
 		res += best;
 	}
 
