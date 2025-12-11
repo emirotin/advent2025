@@ -36,6 +36,23 @@ const parseDef = (s: string) => {
 	return { buttons, jolts };
 };
 
+const gcd = (a: bigint, b: bigint) => {
+	let [x, y] = [a, b];
+	while (true) {
+		if (x < y) {
+			[x, y] = [y, x];
+		}
+		if (y === 0n) {
+			return x;
+		}
+		[x, y] = [x % y, y];
+	}
+};
+
+const isDivisible = (a: bigint, b: bigint) => {
+	return a % b === 0n;
+};
+
 function findMinimalCombination(
 	targetArray: number[],
 	incrementArrays: number[][]
@@ -50,8 +67,8 @@ function findMinimalCombination(
 			return toBased(positions);
 		})
 		.toSorted((a, b) => {
-			if (b < a) return -1;
-			if (b > a) return 1;
+			if (a > b) return 1;
+			if (a < b) return -1;
 			return 0;
 		});
 
@@ -62,8 +79,7 @@ function findMinimalCombination(
 
 	let experiment: (typeof experiments)[number] | undefined;
 	while ((experiment = experiments.pop())) {
-		console.log(experiments.length);
-		const [target, increments, currentCount] = experiment;
+		let [target, increments, currentCount] = experiment;
 		if (currentCount >= bestResult) continue;
 		if (target < 0n) continue;
 		if (target === 0n) {
@@ -71,17 +87,28 @@ function findMinimalCombination(
 			continue;
 		}
 		if (!increments.length) continue;
+
+		const d = increments.length === 1 ? increments[0]! : increments.reduce(gcd);
+		if (!isDivisible(target, d)) continue;
+		target /= d;
+		increments = increments.map((x) => x / d);
+
+		if (d > 1n) console.log("gcd", d);
+		return 0;
+
 		const [inc, ...restIncrements] = increments;
-		const maxPossibleCoeff = target / inc!;
-		for (let c = 0; c <= maxPossibleCoeff; c++) {
+		const maxPossibleCoeff = Number(target / inc!);
+		for (let c = maxPossibleCoeff; c >= 0; c--) {
 			experiments.push([
 				target - BigInt(c) * inc!,
 				restIncrements,
 				currentCount + c,
 			] as const);
 		}
+		// console.log(experiments.length, increments.length);
 	}
 
+	if (!Number.isFinite(bestResult)) throw new Error("No solution found");
 	return bestResult;
 }
 
@@ -91,8 +118,9 @@ async function main() {
 
 	let res = 0;
 	for (const def of defs) {
-		console.log(def);
+		// console.log(def);
 		const best = findMinimalCombination(def.jolts, def.buttons);
+		// console.log({ best });
 		res += best;
 	}
 
