@@ -168,6 +168,7 @@ function solve(
 
 	// coeffs are {freeVarsCount+1} long, first {freeVarsCount} are coefficients for x_free_{i}
 	// the last is the free term
+	// so, each x_j = coeffs(-1) + SUM[coeff(i) * freeVar(i)]
 	const coeffs = Array.from({ length: freeVarsCount }, (_, i) =>
 		Array.from({ length: freeVarsCount + 1 }, (_, j) =>
 			i === j ? 1 : (0 as number)
@@ -267,12 +268,20 @@ function findOptimal(targetValues: number[], adjMatrix: number[][]): number {
 			bestPresses = allPresses;
 			bestResult = totalPresses;
 		}
-	}
 
-	if (!Number.isFinite(bestResult)) {
-		console.log("Fail", targetValues.join(","));
-	} else {
-		// console.log(bestPresses);
+		const allTargets = Array.from({ length: targetValues.length }, (_, i) => {
+			const relevantButtons = adjMatrix
+				.map((b, bi) => (b.includes(i) ? bi : null))
+				.filter((x) => x !== null);
+			return relevantButtons
+				.map((bi) => allPresses[bi]!)
+				.reduce((a, b) => a + b);
+		});
+		if (targetValues.join(",") !== allTargets.join(",")) {
+			console.log("Mismatch!");
+			console.log("Target:", targetValues.join(","));
+			console.log("Actual:", allTargets.join(","));
+		}
 	}
 
 	return bestResult;
