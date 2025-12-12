@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 
 async function readInput() {
-	const content = (await fs.readFile("12/demo.txt", "utf-8")).trim();
+	const content = (await fs.readFile("12/input.txt", "utf-8")).trim();
 	return content.split("\n\n");
 }
 
@@ -26,7 +26,8 @@ const bitmaskToRow = (row: number, length: number): boolean[] => {
 	while (row) {
 		const v = row % 2 === 1;
 		result[i] = v;
-		row >> 1;
+		row >>= 1;
+		i--;
 	}
 	return result;
 };
@@ -49,7 +50,7 @@ const matrixToBitmaskMatrix = (matrix: Matrix): BitmaskMatrix => ({
 
 const bitmaskMartrixToMatrix = (matrix: BitmaskMatrix) => ({
 	...matrix,
-	m: matrix.m.map(bitmaskToRow),
+	m: matrix.m.map((r) => bitmaskToRow(r, matrix.w)),
 });
 
 const parseShape = (s: string, i: number): Matrix => {
@@ -187,8 +188,8 @@ const fitShape = (
 
 	for (let r = 0; r < shape.h; r++) {
 		const x = shape.m[r]! << shiftC;
-		if (host.m[r]! & x) return null;
-		newHost.m[r]! |= x;
+		if (host.m[startR + r]! & x) return null;
+		newHost.m[startR + r]! |= x;
 	}
 
 	return newHost;
@@ -247,16 +248,21 @@ async function main() {
 	const problems = parseProblems(input.pop()!);
 	const shapes = input.map(parseShape).map(produceVariations);
 
+	let result = 0;
 	for (const p of problems) {
 		console.log("----------");
 		const r = fitIfPossible(p, shapes);
-		if (r) {
-			console.log("OK");
-			print(bitmaskMartrixToMatrix(r));
-		} else {
-			console.log("No Way!");
-		}
+		// if (r) {
+		// 	console.log("OK");
+		// 	print(bitmaskMartrixToMatrix(r));
+		// } else {
+		// 	console.log("No Way!");
+		// }
+
+		result += +Boolean(r);
 	}
+
+	console.log(result);
 }
 
 main().catch(console.error);
