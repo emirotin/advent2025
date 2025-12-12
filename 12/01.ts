@@ -177,55 +177,53 @@ const produceVariations = (matrix: Matrix): BitmaskMatrix[] => {
 const fitShape = (
 	host: BitmaskMatrix,
 	shape: BitmaskMatrix,
-	startR: number,
-	startC: number
+	shiftTop: number,
+	shiftRight: number
 ): BitmaskMatrix | null => {
-	if (host.h - shape.h - startR < 0) return null;
-	const shiftC = host.w - shape.w - startC;
-	if (shiftC < 0) return null;
-
 	const newHost = clone(host);
 
 	for (let r = 0; r < shape.h; r++) {
-		const x = shape.m[r]! << shiftC;
-		if (host.m[startR + r]! & x) return null;
-		newHost.m[startR + r]! |= x;
+		const x = shape.m[r]! << shiftRight;
+		if (host.m[shiftTop + r]! & x) return null;
+		newHost.m[shiftTop + r]! |= x;
 	}
 
 	return newHost;
 };
 
-const fitIfPossibleInt = (
-	p: Problem,
-	shapes: BitmaskMatrix[][],
+let shapes!: BitmaskMatrix[][];
+const cache = new Map<string, BitmaskMatrix | null>();
+
+const fitIfPossible = (
+	w: number,
+	h: number,
+	shapeCounts: number[],
 	currentState: BitmaskMatrix
 ): BitmaskMatrix | null => {
-	if (p.w !== currentState.w || p.h !== currentState.h)
-		throw new Error("Wrong state dimensions");
-	if (p.shapeCounts.length !== shapes.length)
-		throw new Error("Wrong shapes count");
+	const desc = w + "|" + currentState.m.join(",") + "|" + shapeCounts.join(",");
+	const cached = cache.get(desc);
+	if (cached !== undefined) {
+		return cached;
+	}
 
-	const i = p.shapeCounts.findIndex((x) => x > 0);
+	const i = shapeCounts.findIndex((x) => x > 0);
 	// all zeros, good
-	if (i < 0) return currentState;
+	if (i < 0) {
+		cache.set(desc, currentState);
+		return currentState;
+	}
 
+	const newCounts = shapeCounts.with(i, shapeCounts[i]! - 1);
 	const shape = shapes[i]!;
-	const newCounts = p.shapeCounts.slice();
-	newCounts[i]! -= 1;
-	const newP = {
-		...p,
-		shapeCounts: newCounts,
-	};
-
-	const maxStartR = currentState.h - shape[0]!.h;
-	const maxStartC = currentState.w - shape[0]!.w;
+	const maxShiftTop = h - shape[0]!.h;
+	const maxShiftRight = w - shape[0]!.w;
 
 	for (const m of shape) {
-		for (let r = 0; r <= maxStartR; r++) {
-			for (let c = 0; c <= maxStartC; c++) {
+		for (let r = 0; r <= maxShiftTop; r++) {
+			for (let c = 0; c <= maxShiftRight; c++) {
 				const newState = fitShape(currentState, m, r, c);
 				if (!newState) continue;
-				const res = fitIfPossibleInt(newP, shapes, newState);
+				const res = fitIfPossible(w, h, newCounts, newState);
 				if (res) return res;
 			}
 		}
@@ -234,30 +232,27 @@ const fitIfPossibleInt = (
 	return null;
 };
 
-const fitIfPossible = (p: Problem, shapes: BitmaskMatrix[][]) => {
-	return fitIfPossibleInt(
-		p,
-		shapes,
-		matrixToBitmaskMatrix(initMatrix(p.w, p.h))
-	);
-};
-
 async function main() {
 	const input = await readInput();
 
 	const problems = parseProblems(input.pop()!);
-	const shapes = input.map(parseShape).map(produceVariations);
+	shapes = input.map(parseShape).map(produceVariations);
 
 	let result = 0;
 	for (const p of problems) {
 		console.log("----------");
-		const r = fitIfPossible(p, shapes);
-		// if (r) {
-		// 	console.log("OK");
-		// 	print(bitmaskMartrixToMatrix(r));
-		// } else {
-		// 	console.log("No Way!");
-		// }
+		const r = fitIfPossible(
+			p.w,
+			p.h,
+			p.shapeCounts,
+			matrixToBitmaskMatrix(initMatrix(p.w, p.h))
+		);
+		if (r) {
+			console.log("OK");
+			print(bitmaskMartrixToMatrix(r));
+		} else {
+			console.log("No Way!");
+		}
 
 		result += +Boolean(r);
 	}
