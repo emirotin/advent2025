@@ -9,7 +9,26 @@ type Matrix = {
 	w: number;
 	h: number;
 	m: boolean[][];
-	emptyCells: Array<readonly [number, number]>;
+};
+
+type BitmaskMatrix = {
+	w: number;
+	h: number;
+	m: number[];
+};
+
+const rowToBitmask = (row: boolean[]) =>
+	row.reduce<number>((acc, v) => (acc << 1) | +v, 0);
+
+const bitmaskToRow = (row: number, length: number): boolean[] => {
+	const result = Array.from({ length }, () => false);
+	let i = length - 1;
+	while (row) {
+		const v = row % 2 === 1;
+		result[i] = v;
+		row >> 1;
+	}
+	return result;
 };
 
 const initMatrix = (w: number, h: number): Matrix => {
@@ -20,11 +39,18 @@ const initMatrix = (w: number, h: number): Matrix => {
 		w,
 		h,
 		m,
-		emptyCells: Array.from({ length: h }, (_, r) =>
-			Array.from({ length: w }, (_, c) => [r, c] as const)
-		).flat(),
 	};
 };
+
+const matrixToBitmaskMatrix = (matrix: Matrix): BitmaskMatrix => ({
+	...matrix,
+	m: matrix.m.map(rowToBitmask),
+});
+
+const bitmaskMartrixToMatrix = (matrix: BitmaskMatrix) => ({
+	...matrix,
+	m: matrix.m.map(bitmaskToRow),
+});
 
 const parseShape = (s: string, i: number): Matrix => {
 	const lines = s.trim().split("\n");
@@ -42,11 +68,6 @@ const parseShape = (s: string, i: number): Matrix => {
 		m,
 		h,
 		w,
-		emptyCells: Array.from({ length: h }, (_, r) =>
-			Array.from({ length: w }, (_, c) => [r, c] as const)
-		)
-			.flat()
-			.filter(([r, c]) => !m[r]![c]),
 	};
 };
 
@@ -104,16 +125,12 @@ const flipV = (matrix: Matrix): Matrix => {
 	return newM;
 };
 
-const clone = (matrix: Matrix): Matrix => {
-	const { w, h, m } = matrix;
-	const newM = initMatrix(w, h);
-	for (let r = 0; r < h; r++) {
-		for (let c = 0; c < w; c++) {
-			newM.m[r]![c] = m[r]![c]!;
-		}
-	}
-
-	return { ...newM, emptyCells: matrix.emptyCells.slice() };
+const clone = (matrix: BitmaskMatrix): BitmaskMatrix => {
+	return {
+		w: matrix.w,
+		h: matrix.h,
+		m: matrix.m.slice(),
+	};
 };
 
 const eq = (m1: Matrix, m2: Matrix) => {
@@ -147,59 +164,41 @@ const removeDuplicates = <T>(arr: T[], eq: (x: T, y: T) => boolean) => {
 	}
 };
 
-const produceVariations = (matrix: Matrix) => {
+const produceVariations = (matrix: Matrix): BitmaskMatrix[] => {
 	const m1 = rotateCCW(matrix);
 	const m2 = rotateCCW(m1);
 	const m3 = rotateCCW(m2);
 	const result = [matrix, m1, m2, m3, flipH(matrix), flipV(matrix)];
 	removeDuplicates(result, eq);
-	return result;
+	return result.map(matrixToBitmaskMatrix);
 };
 
 const fitShape = (
-	host: Matrix,
-	shape: Matrix,
+	host: BitmaskMatrix,
+	shape: BitmaskMatrix,
 	startR: number,
 	startC: number
-): Matrix | null => {
+): BitmaskMatrix | null => {
+	if (host.h - shape.h - startR < 0) return null;
+	const shiftC = host.w - shape.w - startC;
+	if (shiftC < 0) return null;
+
 	const newHost = clone(host);
-	const emptyCells = new Set(host.emptyCells.map(([r, c]) => `${r}:${c}`));
 
 	for (let r = 0; r < shape.h; r++) {
-		const hostR = startR + r;
-		if (hostR >= host.h) return null;
-		for (let c = 0; c < shape.w; c++) {
-			const hostC = startC + c;
-			if (hostC >= host.w) return null;
-			if (shape.m[r]![c]!) {
-				const coords = `${hostR}:${hostC}`;
-				if (!emptyCells.has(coords)) return null;
-				emptyCells.delete(coords);
-				newHost.m[hostR]![hostC] = shape.m[r]![c]!;
-			}
-		}
+		const x = shape.m[r]! << shiftC;
+		if (host.m[r]! & x) return null;
+		newHost.m[r]! |= x;
 	}
 
-	return {
-		...newHost,
-		emptyCells: emptyCells
-			.values()
-			.toArray()
-			.map(
-				(s) =>
-					s.split(":").map((x) => Number.parseInt(x)) as unknown as readonly [
-						number,
-						number
-					]
-			),
-	};
+	return newHost;
 };
 
 const fitIfPossibleInt = (
 	p: Problem,
-	shapes: Matrix[][],
-	currentState: Matrix
-): Matrix | null => {
+	shapes: BitmaskMatrix[][],
+	currentState: BitmaskMatrix
+): BitmaskMatrix | null => {
 	if (p.w !== currentState.w || p.h !== currentState.h)
 		throw new Error("Wrong state dimensions");
 	if (p.shapeCounts.length !== shapes.length)
@@ -217,31 +216,29 @@ const fitIfPossibleInt = (
 		shapeCounts: newCounts,
 	};
 
+	const maxStartR = currentState.h - shape[0]!.h;
+	const maxStartC = currentState.w - shape[0]!.w;
+
 	for (const m of shape) {
-		for (const [r, c] of currentState.emptyCells) {
-			const newState = fitShape(currentState, m, r, c);
-			if (!newState) continue;
-			const res = fitIfPossibleInt(newP, shapes, newState);
-			if (res) return res;
+		for (let r = 0; r <= maxStartR; r++) {
+			for (let c = 0; c <= maxStartC; c++) {
+				const newState = fitShape(currentState, m, r, c);
+				if (!newState) continue;
+				const res = fitIfPossibleInt(newP, shapes, newState);
+				if (res) return res;
+			}
 		}
 	}
 
 	return null;
 };
 
-const fitIfPossible = (p: Problem, shapes: Matrix[][]) => {
-	const totalArea = p.w * p.h;
-	const shapeAreas = shapes.map((shape) => {
-		const v = shape[0]!;
-		return v.m
-			.map((row) => row.reduce<number>((a, b) => a + +b, 0))
-			.reduce((a, b) => a + b);
-	});
-	const shapesTotalArea = shapeAreas
-		.map((a, i) => a * p.shapeCounts[i]!)
-		.reduce((a, b) => a + b);
-	if (shapesTotalArea > totalArea) return null;
-	return fitIfPossibleInt(p, shapes, initMatrix(p.w, p.h));
+const fitIfPossible = (p: Problem, shapes: BitmaskMatrix[][]) => {
+	return fitIfPossibleInt(
+		p,
+		shapes,
+		matrixToBitmaskMatrix(initMatrix(p.w, p.h))
+	);
 };
 
 async function main() {
@@ -254,7 +251,8 @@ async function main() {
 		console.log("----------");
 		const r = fitIfPossible(p, shapes);
 		if (r) {
-			print(r);
+			console.log("OK");
+			print(bitmaskMartrixToMatrix(r));
 		} else {
 			console.log("No Way!");
 		}
