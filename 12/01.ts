@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 
 async function readInput() {
-	const content = (await fs.readFile("12/input.txt", "utf-8")).trim();
+	const content = (await fs.readFile("12/demo.txt", "utf-8")).trim();
 	return content.split("\n\n");
 }
 
@@ -15,6 +15,12 @@ type BitmaskMatrix = {
 	w: number;
 	h: number;
 	m: number[];
+};
+
+type CondensedBitmaskMatrix = {
+	w: number;
+	h: number;
+	m: bigint;
 };
 
 const rowToBitmask = (row: boolean[]) =>
@@ -31,6 +37,24 @@ const bitmaskToRow = (row: number, length: number): boolean[] => {
 	}
 	return result;
 };
+
+const bitmaskToCondensedBitmask = (mask: number[], w: number): bigint => {
+	let result = 0n;
+	const shift = BigInt(w);
+	for (let i = 0; i < mask.length; i++) {
+		result <<= shift;
+		result |= BigInt(mask[i]!);
+	}
+	return result;
+};
+
+const bitmaskMatrixToCondensedBitmaskMatrix = (
+	matrix: BitmaskMatrix,
+	hostW: number
+): CondensedBitmaskMatrix => ({
+	...matrix,
+	m: bitmaskToCondensedBitmask(matrix.m, hostW),
+});
 
 const initMatrix = (w: number, h: number): Matrix => {
 	const m = Array.from({ length: h }, () =>
@@ -87,8 +111,6 @@ const parseProblems = (s: string) => {
 			};
 		});
 };
-
-type Problem = ReturnType<typeof parseProblems>[number];
 
 const rotateCCW = (matrix: Matrix): Matrix => {
 	const { w, h, m } = matrix;
@@ -175,81 +197,78 @@ const produceVariations = (matrix: Matrix): BitmaskMatrix[] => {
 };
 
 const fitShape = (
-	host: BitmaskMatrix,
-	shape: BitmaskMatrix,
+	host: bigint,
+	shape: bigint,
+	hostW: number,
 	shiftTop: number,
 	shiftRight: number
-): BitmaskMatrix | null => {
-	const newHost = clone(host);
-
-	for (let r = 0; r < shape.h; r++) {
-		const x = shape.m[r]! << shiftRight;
-		if (host.m[shiftTop + r]! & x) return null;
-		newHost.m[shiftTop + r]! |= x;
-	}
-
-	return newHost;
+): bigint | null => {
+	const mask = shape << BigInt(shiftTop ** hostW + shiftRight);
+	if (host & mask) return null;
+	return host | mask;
 };
 
-let shapes!: BitmaskMatrix[][];
-const cache = new Map<string, BitmaskMatrix | null>();
-
 const fitIfPossible = (
+	shapes: BitmaskMatrix[][],
 	w: number,
 	h: number,
-	shapeCounts: number[],
-	currentState: BitmaskMatrix
-): BitmaskMatrix | null => {
-	const desc = w + "|" + currentState.m.join(",") + "|" + shapeCounts.join(",");
-	const cached = cache.get(desc);
-	if (cached !== undefined) {
-		return cached;
-	}
+	shapeCounts: number[]
+): bigint | null => {
+	const seen = new Set<string>();
 
-	const i = shapeCounts.findIndex((x) => x > 0);
-	// all zeros, good
-	if (i < 0) {
-		cache.set(desc, currentState);
-		return currentState;
-	}
+	const condensedShapes = shapes.map((s) =>
+		s.map(bitmaskMatrixToCondensedBitmaskMatrix)
+	);
 
-	const newCounts = shapeCounts.with(i, shapeCounts[i]! - 1);
-	const shape = shapes[i]!;
-	const maxShiftTop = h - shape[0]!.h;
-	const maxShiftRight = w - shape[0]!.w;
+	const inner = (
+		shapeCounts: number[],
+		currentState: bigint
+	): bigint | null => {
+		const desc = w + "|" + currentState + "|" + shapeCounts.join(",");
+		if (seen.has(desc)) return null;
+		seen.add(desc);
 
-	for (const m of shape) {
-		for (let r = 0; r <= maxShiftTop; r++) {
-			for (let c = 0; c <= maxShiftRight; c++) {
-				const newState = fitShape(currentState, m, r, c);
-				if (!newState) continue;
-				const res = fitIfPossible(w, h, newCounts, newState);
-				if (res) return res;
+		const i = shapeCounts.findIndex((x) => x > 0);
+		// all zeros, good
+		if (i < 0) {
+			return currentState;
+		}
+
+		const newCounts = shapeCounts.with(i, shapeCounts[i]! - 1);
+		const shape = condensedShapes[i]!;
+		const maxShiftTop = h - shape[0]!.h;
+		const maxShiftRight = w - shape[0]!.w;
+
+		for (const v of shape) {
+			for (let r = 0; r <= maxShiftTop; r++) {
+				for (let c = 0; c <= maxShiftRight; c++) {
+					const newState = fitShape(currentState, v.m, w, r, c);
+					if (!newState) continue;
+					const res = inner(newCounts, newState);
+					if (res) return res;
+				}
 			}
 		}
-	}
 
-	return null;
+		return null;
+	};
+
+	return inner(shapeCounts, 0n);
 };
 
 async function main() {
 	const input = await readInput();
 
 	const problems = parseProblems(input.pop()!);
-	shapes = input.map(parseShape).map(produceVariations);
+	const shapes = input.map(parseShape).map(produceVariations);
 
 	let result = 0;
 	for (const p of problems) {
 		console.log("----------");
-		const r = fitIfPossible(
-			p.w,
-			p.h,
-			p.shapeCounts,
-			matrixToBitmaskMatrix(initMatrix(p.w, p.h))
-		);
+		const r = fitIfPossible(shapes, p.w, p.h, p.shapeCounts);
 		if (r) {
 			console.log("OK");
-			print(bitmaskMartrixToMatrix(r));
+			// print(bitmaskMartrixToMatrix(r));
 		} else {
 			console.log("No Way!");
 		}
