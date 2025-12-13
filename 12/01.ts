@@ -41,9 +41,26 @@ const bitmaskToRow = (row: number, length: number): boolean[] => {
 const bitmaskToCondensedBitmask = (mask: number[], w: number): bigint => {
 	let result = 0n;
 	const shift = BigInt(w);
-	for (let i = 0; i < mask.length; i++) {
+	for (let i = mask.length - 1; i >= 0; i--) {
 		result <<= shift;
 		result |= BigInt(mask[i]!);
+	}
+	return result;
+};
+
+const condensedBitmaskToBitmask = (
+	mask: bigint,
+	w: number,
+	h: number
+): number[] => {
+	let result = Array.from({ length: h }, () => 0);
+	const extractor = (1n << BigInt(w)) - 1n;
+	let i = 0;
+	while (mask) {
+		const v = mask & extractor;
+		result[i] = Number(v);
+		i++;
+		mask >>= BigInt(w);
 	}
 	return result;
 };
@@ -54,6 +71,15 @@ const bitmaskMatrixToCondensedBitmaskMatrix = (
 ): CondensedBitmaskMatrix => ({
 	...matrix,
 	m: bitmaskToCondensedBitmask(matrix.m, hostW),
+});
+
+const condensedBitmaskMatrixToBitmaskMatrix = (
+	matrix: CondensedBitmaskMatrix,
+	hostW: number,
+	hostH: number
+): BitmaskMatrix => ({
+	...matrix,
+	m: condensedBitmaskToBitmask(matrix.m, hostW, hostH),
 });
 
 const initMatrix = (w: number, h: number): Matrix => {
@@ -148,14 +174,6 @@ const flipV = (matrix: Matrix): Matrix => {
 	return newM;
 };
 
-const clone = (matrix: BitmaskMatrix): BitmaskMatrix => {
-	return {
-		w: matrix.w,
-		h: matrix.h,
-		m: matrix.m.slice(),
-	};
-};
-
 const eq = (m1: Matrix, m2: Matrix) => {
 	if (m1.h !== m2.h) return false;
 	if (m1.w !== m2.w) return false;
@@ -166,12 +184,6 @@ const eq = (m1: Matrix, m2: Matrix) => {
 		}
 	}
 	return true;
-};
-
-const print = (matrix: Matrix) => {
-	console.log(
-		matrix.m.map((r) => r.map((x) => (x ? "#" : ".")).join("")).join("\n")
-	);
 };
 
 const removeDuplicates = <T>(arr: T[], eq: (x: T, y: T) => boolean) => {
@@ -196,18 +208,6 @@ const produceVariations = (matrix: Matrix): BitmaskMatrix[] => {
 	return result.map(matrixToBitmaskMatrix);
 };
 
-const fitShape = (
-	host: bigint,
-	shape: bigint,
-	hostW: number,
-	shiftTop: number,
-	shiftRight: number
-): bigint | null => {
-	const mask = shape << BigInt(shiftTop ** hostW + shiftRight);
-	if (host & mask) return null;
-	return host | mask;
-};
-
 const fitIfPossible = (
 	shapes: BitmaskMatrix[][],
 	w: number,
@@ -217,14 +217,14 @@ const fitIfPossible = (
 	const seen = new Set<string>();
 
 	const condensedShapes = shapes.map((s) =>
-		s.map(bitmaskMatrixToCondensedBitmaskMatrix)
+		s.map((v) => bitmaskMatrixToCondensedBitmaskMatrix(v, w))
 	);
 
 	const inner = (
 		shapeCounts: number[],
 		currentState: bigint
 	): bigint | null => {
-		const desc = w + "|" + currentState + "|" + shapeCounts.join(",");
+		const desc = currentState + "|" + shapeCounts.join(",");
 		if (seen.has(desc)) return null;
 		seen.add(desc);
 
@@ -242,8 +242,10 @@ const fitIfPossible = (
 		for (const v of shape) {
 			for (let r = 0; r <= maxShiftTop; r++) {
 				for (let c = 0; c <= maxShiftRight; c++) {
-					const newState = fitShape(currentState, v.m, w, r, c);
-					if (!newState) continue;
+					const mask = v.m << BigInt(r * w + c);
+					const newState = currentState & mask ? null : currentState | mask;
+
+					if (newState === null) continue;
 					const res = inner(newCounts, newState);
 					if (res) return res;
 				}
@@ -254,6 +256,23 @@ const fitIfPossible = (
 	};
 
 	return inner(shapeCounts, 0n);
+};
+
+const print = (condensedMask: bigint, w: number, h: number) => {
+	const matrix = bitmaskMartrixToMatrix(
+		condensedBitmaskMatrixToBitmaskMatrix(
+			{
+				w,
+				h,
+				m: condensedMask,
+			},
+			w,
+			h
+		)
+	);
+	console.log(
+		matrix.m.map((r) => r.map((x) => (x ? "#" : ".")).join("")).join("\n")
+	);
 };
 
 async function main() {
@@ -268,7 +287,7 @@ async function main() {
 		const r = fitIfPossible(shapes, p.w, p.h, p.shapeCounts);
 		if (r) {
 			console.log("OK");
-			// print(bitmaskMartrixToMatrix(r));
+			print(r, p.w, p.h);
 		} else {
 			console.log("No Way!");
 		}
