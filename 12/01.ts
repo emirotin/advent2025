@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 
 async function readInput() {
-	const content = (await fs.readFile("12/demo.txt", "utf-8")).trim();
+	const content = (await fs.readFile("12/input.txt", "utf-8")).trim();
 	return content.split("\n\n");
 }
 
@@ -234,7 +234,7 @@ const fitIfPossible = (
 		.map((v, i) => v * shapeCounts[i]!)
 		.reduce((a, b) => a + b);
 	if (total > w * h) {
-		console.log("Early exit!");
+		// console.log("Early exit!");
 		return null;
 	}
 
@@ -243,8 +243,12 @@ const fitIfPossible = (
 		currentState: bigint
 	): bigint | null => {
 		const desc = currentState + "|" + shapeCounts.join(",");
-		if (seen.has(desc)) return null;
+		if (seen.has(desc)) {
+			// console.log("skip");
+			return null;
+		}
 		seen.add(desc);
+		// console.log(shapeCounts);
 
 		const i = shapeCounts.findIndex((x) => x > 0);
 		// all zeros, good
@@ -275,22 +279,22 @@ const fitIfPossible = (
 	return inner(shapeCounts, 0n);
 };
 
-const print = (condensedMask: bigint, w: number, h: number) => {
-	const matrix = bitmaskMartrixToMatrix(
-		condensedBitmaskMatrixToBitmaskMatrix(
-			{
-				w,
-				h,
-				m: condensedMask,
-			},
-			w,
-			h
-		)
-	);
-	console.log(
-		matrix.m.map((r) => r.map((x) => (x ? "#" : ".")).join("")).join("\n")
-	);
-};
+// const print = (condensedMask: bigint, w: number, h: number) => {
+// 	const matrix = bitmaskMartrixToMatrix(
+// 		condensedBitmaskMatrixToBitmaskMatrix(
+// 			{
+// 				w,
+// 				h,
+// 				m: condensedMask,
+// 			},
+// 			w,
+// 			h
+// 		)
+// 	);
+// 	console.log(
+// 		matrix.m.map((r) => r.map((x) => (x ? "#" : ".")).join("")).join("\n")
+// 	);
+// };
 
 async function main() {
 	const input = await readInput();
@@ -300,14 +304,13 @@ async function main() {
 
 	let result = 0;
 	for (const p of problems) {
-		console.log("----------");
+		// console.log("----------");
 		const r = fitIfPossible(shapes, p.w, p.h, p.shapeCounts);
-		if (r) {
-			console.log("OK");
-			print(r, p.w, p.h);
-		} else {
-			console.log("No Way!");
-		}
+		// if (r) {
+		// 	console.log("OK");
+		// } else {
+		// 	console.log("No Way!");
+		// }
 
 		result += +Boolean(r);
 	}
