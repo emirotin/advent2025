@@ -233,7 +233,7 @@ const fitIfPossible = (
 		.map((s) => calcBits(s[0]!.m))
 		.map((v, i) => v * shapeCounts[i]!)
 		.reduce((a, b) => a + b);
-	// check if there's even enough bits to accomodate the required number of thapes
+	// check if there's even enough bits to accomodate the required number of shapes
 	if (requiredBits > w * h) {
 		return null;
 	}
