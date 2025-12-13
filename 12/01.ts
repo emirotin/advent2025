@@ -73,14 +73,14 @@ const bitmaskMatrixToCondensedBitmaskMatrix = (
 	m: bitmaskToCondensedBitmask(matrix.m, hostW),
 });
 
-const condensedBitmaskMatrixToBitmaskMatrix = (
-	matrix: CondensedBitmaskMatrix,
-	hostW: number,
-	hostH: number
-): BitmaskMatrix => ({
-	...matrix,
-	m: condensedBitmaskToBitmask(matrix.m, hostW, hostH),
-});
+// const condensedBitmaskMatrixToBitmaskMatrix = (
+// 	matrix: CondensedBitmaskMatrix,
+// 	hostW: number,
+// 	hostH: number
+// ): BitmaskMatrix => ({
+// 	...matrix,
+// 	m: condensedBitmaskToBitmask(matrix.m, hostW, hostH),
+// });
 
 const initMatrix = (w: number, h: number): Matrix => {
 	const m = Array.from({ length: h }, () =>
@@ -98,10 +98,10 @@ const matrixToBitmaskMatrix = (matrix: Matrix): BitmaskMatrix => ({
 	m: matrix.m.map(rowToBitmask),
 });
 
-const bitmaskMartrixToMatrix = (matrix: BitmaskMatrix) => ({
-	...matrix,
-	m: matrix.m.map((r) => bitmaskToRow(r, matrix.w)),
-});
+// const bitmaskMartrixToMatrix = (matrix: BitmaskMatrix) => ({
+// 	...matrix,
+// 	m: matrix.m.map((r) => bitmaskToRow(r, matrix.w)),
+// });
 
 const parseShape = (s: string, i: number): Matrix => {
 	const lines = s.trim().split("\n");
@@ -229,12 +229,12 @@ const fitIfPossible = (
 		s.map((v) => bitmaskMatrixToCondensedBitmaskMatrix(v, w))
 	);
 
-	const total = condensedShapes
+	const requiredBits = condensedShapes
 		.map((s) => calcBits(s[0]!.m))
 		.map((v, i) => v * shapeCounts[i]!)
 		.reduce((a, b) => a + b);
-	if (total > w * h) {
-		// console.log("Early exit!");
+	// check if there's even enough bits to accomodate the required number of thapes
+	if (requiredBits > w * h) {
 		return null;
 	}
 
@@ -244,11 +244,9 @@ const fitIfPossible = (
 	): bigint | null => {
 		const desc = currentState + "|" + shapeCounts.join(",");
 		if (seen.has(desc)) {
-			// console.log("skip");
 			return null;
 		}
 		seen.add(desc);
-		// console.log(shapeCounts);
 
 		const i = shapeCounts.findIndex((x) => x > 0);
 		// all zeros, good
@@ -302,20 +300,10 @@ async function main() {
 	const problems = parseProblems(input.pop()!);
 	const shapes = input.map(parseShape).map(produceVariations);
 
-	let result = 0;
-	for (const p of problems) {
-		// console.log("----------");
-		const r = fitIfPossible(shapes, p.w, p.h, p.shapeCounts);
-		// if (r) {
-		// 	console.log("OK");
-		// } else {
-		// 	console.log("No Way!");
-		// }
-
-		result += +Boolean(r);
-	}
-
-	console.log(result);
+	console.log(
+		problems.filter((p) => fitIfPossible(shapes, p.w, p.h, p.shapeCounts))
+			.length
+	);
 }
 
 main().catch(console.error);
