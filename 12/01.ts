@@ -208,6 +208,15 @@ const produceVariations = (matrix: Matrix): BitmaskMatrix[] => {
 	return result.map(matrixToBitmaskMatrix);
 };
 
+const calcBits = (n: bigint) => {
+	let res = 0;
+	while (n) {
+		res += Number(n & 1n);
+		n >>= 1n;
+	}
+	return res;
+};
+
 const fitIfPossible = (
 	shapes: BitmaskMatrix[][],
 	w: number,
@@ -219,6 +228,15 @@ const fitIfPossible = (
 	const condensedShapes = shapes.map((s) =>
 		s.map((v) => bitmaskMatrixToCondensedBitmaskMatrix(v, w))
 	);
+
+	const total = condensedShapes
+		.map((s) => calcBits(s[0]!.m))
+		.map((v, i) => v * shapeCounts[i]!)
+		.reduce((a, b) => a + b);
+	if (total > w * h) {
+		console.log("Early exit!");
+		return null;
+	}
 
 	const inner = (
 		shapeCounts: number[],
@@ -244,7 +262,6 @@ const fitIfPossible = (
 				for (let c = 0; c <= maxShiftRight; c++) {
 					const mask = v.m << BigInt(r * w + c);
 					const newState = currentState & mask ? null : currentState | mask;
-
 					if (newState === null) continue;
 					const res = inner(newCounts, newState);
 					if (res) return res;
